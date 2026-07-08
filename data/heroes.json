@@ -1,0 +1,110 @@
+[
+  {
+    "heroKey": 101,
+    "class": "Knight",
+    "icon": "heroes/Hero_101.png",
+    "mainWeaponGearType": "SWORD",
+    "subWeaponGearType": "SHIELD",
+    "baseStats": {
+      "AttackDamage": 2,
+      "AttackSpeed": 90,
+      "CastSpeed": 100,
+      "CriticalChance": 25,
+      "CriticalDamage": 1400,
+      "MaxHp": 130,
+      "Armor": 45,
+      "CooldownReduction": 0,
+      "MovementSpeed": 950
+    }
+  },
+  {
+    "heroKey": 201,
+    "class": "Ranger",
+    "icon": "heroes/Hero_201.png",
+    "mainWeaponGearType": "BOW",
+    "subWeaponGearType": "ARROW",
+    "baseStats": {
+      "AttackDamage": 1,
+      "AttackSpeed": 100,
+      "CastSpeed": 100,
+      "CriticalChance": 40,
+      "CriticalDamage": 1500,
+      "MaxHp": 60,
+      "Armor": 8,
+      "CooldownReduction": 0,
+      "MovementSpeed": 850
+    }
+  },
+  {
+    "heroKey": 301,
+    "class": "Sorcerer",
+    "icon": "heroes/Hero_301.png",
+    "mainWeaponGearType": "STAFF",
+    "subWeaponGearType": "ORB",
+    "baseStats": {
+      "AttackDamage": 2,
+      "AttackSpeed": 55,
+      "CastSpeed": 100,
+      "CriticalChance": 50,
+      "CriticalDamage": 1650,
+      "MaxHp": 50,
+      "Armor": 5,
+      "CooldownReduction": 0,
+      "MovementSpeed": 770
+    }
+  },
+  {
+    "heroKey": 401,
+    "class": "Priest",
+    "icon": "heroes/Hero_401.png",
+    "mainWeaponGearType": "SCEPTER",
+    "subWeaponGearType": "TOME",
+    "baseStats": {
+      "AttackDamage": 1,
+      "AttackSpeed": 90,
+      "CastSpeed": 100,
+      "CriticalChance": 20,
+      "CriticalDamage": 1400,
+      "MaxHp": 95,
+      "Armor": 30,
+      "CooldownReduction": 0,
+      "MovementSpeed": 700
+    }
+  },
+  {
+    "heroKey": 501,
+    "class": "Hunter",
+    "icon": "heroes/Hero_501.png",
+    "mainWeaponGearType": "CROSSBOW",
+    "subWeaponGearType": "BOLT",
+    "baseStats": {
+      "AttackDamage": 2,
+      "AttackSpeed": 70,
+      "CastSpeed": 100,
+      "CriticalChance": 45,
+      "CriticalDamage": 1550,
+      "MaxHp": 70,
+      "Armor": 15,
+      "CooldownReduction": 0,
+      "MovementSpeed": 750
+    }
+  },
+  {
+    "heroKey": 601,
+    "class": "Slayer",
+    "icon": "heroes/Hero_601.png",
+    "mainWeaponGearType": "AXE",
+    "subWeaponGearType": "HATCHET",
+    "baseStats": {
+      "AttackDamage": 2,
+      "AttackSpeed": 70,
+      "CastSpeed": 100,
+      "CriticalChance": 25,
+      "CriticalDamage": 1800,
+      "MaxHp": 115,
+      "Armor": 40,
+      "CooldownReduction": 0,
+      "MovementSpeed": 850
+    }
+  }
+]

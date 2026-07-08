@@ -1,0 +1,82 @@
+[
+  {
+    "grade": "COMMON",
+    "order": 0,
+    "inherentSlots": 0,
+    "decorationSlots": 0,
+    "engravingSlots": 0,
+    "inscriptionSlots": 0
+  },
+  {
+    "grade": "UNCOMMON",
+    "order": 1,
+    "inherentSlots": 1,
+    "decorationSlots": 0,
+    "engravingSlots": 0,
+    "inscriptionSlots": 0
+  },
+  {
+    "grade": "RARE",
+    "order": 2,
+    "inherentSlots": 1,
+    "decorationSlots": 1,
+    "engravingSlots": 0,
+    "inscriptionSlots": 0
+  },
+  {
+    "grade": "LEGENDARY",
+    "order": 3,
+    "inherentSlots": 2,
+    "decorationSlots": 2,
+    "engravingSlots": 0,
+    "inscriptionSlots": 0
+  },
+  {
+    "grade": "IMMORTAL",
+    "order": 4,
+    "inherentSlots": 2,
+    "decorationSlots": 2,
+    "engravingSlots": 1,
+    "inscriptionSlots": 0
+  },
+  {
+    "grade": "ARCANA",
+    "order": 5,
+    "inherentSlots": 3,
+    "decorationSlots": 2,
+    "engravingSlots": 1,
+    "inscriptionSlots": 1
+  },
+  {
+    "grade": "BEYOND",
+    "order": 6,
+    "inherentSlots": 3,
+    "decorationSlots": 2,
+    "engravingSlots": 2,
+    "inscriptionSlots": 1
+  },
+  {
+    "grade": "CELESTIAL",
+    "order": 7,
+    "inherentSlots": 3,
+    "decorationSlots": 2,
+    "engravingSlots": 2,
+    "inscriptionSlots": 2
+  },
+  {
+    "grade": "DIVINE",
+    "order": 8,
+    "inherentSlots": 3,
+    "decorationSlots": 2,
+    "engravingSlots": 2,
+    "inscriptionSlots": 2
+  },
+  {
+    "grade": "COSMIC",
+    "order": 9,
+    "inherentSlots": 3,
+    "decorationSlots": 2,
+    "engravingSlots": 2,
+    "inscriptionSlots": 2
+  }
+]

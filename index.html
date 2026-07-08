@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TBH Item Advisor — Task Bar Hero Save Analyzer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>TBH Item Advisor</h1>
+    <p class="tagline">Task Bar Hero için resmi olmayan bir hayran aracı: hangi itemi hangi kahramana vermelisin?</p>
+  </header>
+
+  <main>
+    <section id="upload-section" class="panel">
+      <div id="drop-zone" class="drop-zone">
+        <p><strong>SaveFile_Live.es3</strong> dosyanı buraya sürükle bırak veya seç.</p>
+        <p class="hint">Konum genelde: <code>%USERPROFILE%\AppData\LocalLow\TesseractStudio\TaskbarHero\SaveFile_Live.es3</code></p>
+        <input type="file" id="file-input" accept=".es3" />
+      </div>
+      <p id="status-message" class="status-message" role="status"></p>
+      <p class="privacy-note">
+        🔒 Dosyan hiçbir sunucuya yüklenmez. Şifre çözme ve analiz tamamen bu sekmede,
+        tarayıcının kendi içinde yapılır.
+      </p>
+    </section>
+
+    <section id="skill-guide-section" class="panel">
+      <h2>Skill Ağacı Rehberi</h2>
+      <p class="hint">
+        Skill ağacı verisi (yetenek adları, açılma seviyeleri, maksimum kademeler) oyunun kendi
+        skill tanımlarından datamine edilmiş kaynak olan
+        <a href="https://taskbarhero.org/en/" target="_blank" rel="noopener">taskbarhero.org</a>'dan alındı.
+        Seviye başına kaç skill puanı kazanıldığı hâlâ resmi olarak yayınlanmadığından, hesaplayıcı
+        1 seviye = 1 puan varsayımıyla çalışıyor; puanı hangi düğüme öncelik vereceğin ise (aynı anda birden
+        fazla seçenek açıksa) sınıfın rolüne göre yapılmış bir tercih, kesin bir "en iyi build" değil.
+      </p>
+
+      <div class="tier-list">
+        <span class="tier-chip tier-s">S: Knight · Priest · Hunter</span>
+        <span class="tier-chip tier-a">A: Sorcerer · Slayer</span>
+        <span class="tier-chip tier-b">B: Ranger</span>
+      </div>
+
+      <div class="meta-teams">
+        <div class="meta-team"><strong>Yeni başlayan:</strong> Knight + Priest + Ranger</div>
+        <div class="meta-team"><strong>Hızlı farm:</strong> Priest + Ranger + Sorcerer</div>
+        <div class="meta-team"><strong>Boss ilerlemesi:</strong> Knight + Hunter + Priest</div>
+        <div class="meta-team"><strong>Sadece ücretsiz (F2P):</strong> Knight + Priest + Sorcerer</div>
+      </div>
+
+      <div class="skill-calc">
+        <label for="skill-class-select">Sınıf
+          <select id="skill-class-select">
+            <option value="Knight">Knight</option>
+            <option value="Ranger">Ranger</option>
+            <option value="Sorcerer">Sorcerer</option>
+            <option value="Priest">Priest</option>
+            <option value="Hunter">Hunter</option>
+            <option value="Slayer">Slayer</option>
+          </select>
+        </label>
+        <label for="skill-level-input">Seviye
+          <input type="number" id="skill-level-input" min="1" max="200" value="45" />
+        </label>
+        <button id="skill-guide-btn" type="button">Puan Dağılımını Göster</button>
+      </div>
+
+      <div id="skill-guide-output"></div>
+    </section>
+
+    <section id="results-section" class="hidden">
+      <div id="heroes-panel" class="panel">
+        <h2>Kahramanlar</h2>
+        <div id="heroes-grid" class="grid"></div>
+      </div>
+
+      <div id="loadout-panel" class="panel">
+        <h2>Kahraman Ekipman Planı (Seviyene Uygun)</h2>
+        <p class="hint">
+          Her kahraman için 10 ekipman slotu, o kahramanın <strong>şu anki seviyesine</strong> uygun
+          (üstünde olmayan) sahip olduğun en iyi eşyayla eşleştiriliyor.
+        </p>
+        <div id="loadout-grid" class="loadout-list"></div>
+      </div>
+
+      <div id="inventory-panel" class="panel">
+        <h2>Envanter &amp; Depo Önerileri</h2>
+        <div id="inventory-grid" class="grid"></div>
+      </div>
+
+      <div id="socket-guide-panel" class="panel">
+        <h2>Taş Rehberi (Süsleme / Kazıma / Nakış)</h2>
+        <p class="hint">
+          Bir taş; silaha, zırha veya aksesuara takıldığında <strong>farklı bir özellik</strong> verir —
+          aşağıdaki değerler oyunun kendi verisinden çözüldü, tahmini değildir.
+        </p>
+        <div id="socket-guide-content"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      Bu site, "TBH: Task Bar Hero" oyununun resmi olmayan bir hayran aracıdır.
+      Nugem Studio / Tesseract Studio ile bir bağlantısı yoktur.
+    </p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
