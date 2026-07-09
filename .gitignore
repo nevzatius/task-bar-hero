@@ -1,3 +1,4 @@
 *.es3
 *.es3.bak
 node_modules/
+CLAUDE.md
