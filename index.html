@@ -173,8 +173,8 @@
   <script>
     fetch('https://nevzatius.goatcounter.com/counter/TOTAL.json')
       .then((r) => r.json())
-      .then((data) => { document.getElementById('visitor-count').textContent = data.count; })
-      .catch(() => { document.getElementById('visitor-counter').style.display = 'none'; });
+      .then((data) => { document.getElementById('visitor-count').textContent = data.count || '—'; })
+      .catch(() => { document.getElementById('visitor-count').textContent = '—'; });
   </script>
 </body>
 </html>
