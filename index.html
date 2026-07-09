@@ -5,9 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>TBH Item Advisor — Task Bar Hero Save Analyzer</title>
   <link rel="stylesheet" href="style.css" />
+  <script data-goatcounter="https://nevzatius.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
   <header class="site-header">
+    <div id="visitor-counter" class="visitor-counter" title="Toplam ziyaret">👁 <span id="visitor-count">…</span></div>
     <h1>TBH Item Advisor</h1>
     <p class="tagline">Task Bar Hero için resmi olmayan bir hayran aracı: hangi itemi hangi kahramana vermelisin?</p>
   </header>
@@ -26,6 +29,88 @@
       </p>
     </section>
 
+    <nav id="tab-bar" class="tab-bar" role="tablist" aria-label="Bölümler">
+      <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab="kahramanlar">Kahramanlar</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="envanter">Envanter</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="tas-rehberi">Taş Rehberi</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="skill-rehberi">Skill Rehberi</button>
+    </nav>
+
+    <section id="panel-kahramanlar" class="tab-panel active" role="tabpanel">
+      <p class="tab-empty-state needs-save">
+        Kahramanlarını görmek için üstteki alandan kayıt dosyanı (SaveFile_Live.es3) yükle.
+        Save gerektirmeyen <strong>Skill Rehberi</strong> sekmesine şimdiden bakabilirsin.
+      </p>
+      <div class="needs-save-content">
+        <div id="heroes-panel" class="panel">
+          <h2>Kahramanlar</h2>
+          <p class="hint">Ekipman planı ve detaylar için bir kahraman kartına tıkla.</p>
+          <div id="heroes-grid" class="grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-envanter" class="tab-panel" role="tabpanel">
+      <p class="tab-empty-state needs-save">Envanter ve depo önerilerini görmek için üstteki alandan kayıt dosyanı yükle.</p>
+      <div class="needs-save-content">
+        <div id="inventory-panel" class="panel">
+          <h2>Envanter &amp; Depo Önerileri</h2>
+          <p class="hint">Stat detayı, kahraman sıralaması ve taş önerisi için bir item kartına tıkla.</p>
+          <div class="inventory-filters skill-calc">
+            <label for="inv-search">Ara
+              <input type="search" id="inv-search" placeholder="Item adı…" />
+            </label>
+            <label for="inv-grade-filter">Kalite
+              <select id="inv-grade-filter"></select>
+            </label>
+            <label for="inv-parts-filter">Tip
+              <select id="inv-parts-filter"></select>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" id="inv-upgrades-only" />
+              Sadece yükseltmeler
+            </label>
+          </div>
+          <p id="inv-filter-count" class="hint"></p>
+          <div id="inventory-grid" class="grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-tas-rehberi" class="tab-panel" role="tabpanel">
+      <p class="tab-empty-state needs-save">Taş rehberi ve item bazlı taş önerileri için üstteki alandan kayıt dosyanı yükle.</p>
+      <div class="needs-save-content">
+        <div id="socket-guide-panel" class="panel">
+          <h2>Taş Rehberi (Süsleme / Kazıma / Nakış)</h2>
+          <p class="hint">
+            Bir taş; silaha, zırha veya aksesuara takıldığında <strong>farklı bir özellik</strong> verir —
+            aşağıdaki değerler oyunun kendi verisinden çözüldü, tahmini değildir.
+          </p>
+
+          <div id="socket-advisor">
+            <h3>Item'e Taş Önerisi</h3>
+            <p class="hint">
+              Envanterinden, deposundan veya bir kahramanın üzerinden item seç; kalitesine göre açık
+              taş yuvaları ve her yuva tipi için en mantıklı ilk 3 taş listelenir. Sıralama sınıfın
+              rolüne göre yapılmış bir tercihtir (kesin "en iyi" değil); stat değerleri oyun verisidir.
+            </p>
+            <div class="socket-advisor-controls skill-calc">
+              <label for="socket-item-select">Item
+                <select id="socket-item-select"></select>
+              </label>
+              <label for="socket-hero-select">Kahraman
+                <select id="socket-hero-select"></select>
+              </label>
+            </div>
+            <div id="socket-advice-output"></div>
+          </div>
+
+          <div id="socket-guide-content"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-skill-rehberi" class="tab-panel" role="tabpanel">
     <section id="skill-guide-section" class="panel">
       <h2>Skill Ağacı Rehberi</h2>
       <p class="hint">
@@ -69,35 +154,6 @@
 
       <div id="skill-guide-output"></div>
     </section>
-
-    <section id="results-section" class="hidden">
-      <div id="heroes-panel" class="panel">
-        <h2>Kahramanlar</h2>
-        <div id="heroes-grid" class="grid"></div>
-      </div>
-
-      <div id="loadout-panel" class="panel">
-        <h2>Kahraman Ekipman Planı (Seviyene Uygun)</h2>
-        <p class="hint">
-          Her kahraman için 10 ekipman slotu, o kahramanın <strong>şu anki seviyesine</strong> uygun
-          (üstünde olmayan) sahip olduğun en iyi eşyayla eşleştiriliyor.
-        </p>
-        <div id="loadout-grid" class="loadout-list"></div>
-      </div>
-
-      <div id="inventory-panel" class="panel">
-        <h2>Envanter &amp; Depo Önerileri</h2>
-        <div id="inventory-grid" class="grid"></div>
-      </div>
-
-      <div id="socket-guide-panel" class="panel">
-        <h2>Taş Rehberi (Süsleme / Kazıma / Nakış)</h2>
-        <p class="hint">
-          Bir taş; silaha, zırha veya aksesuara takıldığında <strong>farklı bir özellik</strong> verir —
-          aşağıdaki değerler oyunun kendi verisinden çözüldü, tahmini değildir.
-        </p>
-        <div id="socket-guide-content"></div>
-      </div>
     </section>
   </main>
 
@@ -108,6 +164,17 @@
     </p>
   </footer>
 
+  <dialog id="app-modal" class="app-modal">
+    <button type="button" class="modal-close" aria-label="Kapat">×</button>
+    <div id="modal-body" class="modal-body"></div>
+  </dialog>
+
   <script type="module" src="js/app.js"></script>
+  <script>
+    fetch('https://nevzatius.goatcounter.com/counter/TOTAL.json')
+      .then((r) => r.json())
+      .then((data) => { document.getElementById('visitor-count').textContent = data.count; })
+      .catch(() => { document.getElementById('visitor-counter').style.display = 'none'; });
+  </script>
 </body>
 </html>

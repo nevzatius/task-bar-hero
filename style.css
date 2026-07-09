@@ -28,8 +28,21 @@ body {
 }
 
 .site-header {
+  position: relative;
   padding: 2rem 1.5rem 1rem;
   text-align: center;
+}
+
+.visitor-counter {
+  position: absolute;
+  top: 0.9rem;
+  right: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
 }
 
 .site-header h1 {
@@ -138,7 +151,8 @@ main {
   font-size: 1.05rem;
 }
 
-.hero-card .hero-class {
+.hero-card .hero-class,
+.modal-body .hero-class {
   color: var(--text-dim);
   font-size: 0.85rem;
   margin-bottom: 0.6rem;
@@ -190,6 +204,16 @@ main {
   font-style: italic;
 }
 
+.equip-slot.clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.12s ease;
+}
+
+.equip-slot.clickable:hover {
+  background-color: var(--accent-dim);
+}
+
 .item-card {
   background: #10121a;
   border: 1px solid var(--panel-border);
@@ -239,27 +263,35 @@ main {
   margin: 0;
 }
 
-.item-card .item-name {
+.item-card .item-name,
+.modal-body .item-card-head .item-name {
   font-weight: 600;
   margin-bottom: 0.15rem;
 }
 
-.item-card .item-meta {
+.item-card .item-meta,
+.modal-body .item-card-head .item-meta {
   color: var(--text-dim);
   font-size: 0.78rem;
   margin-bottom: 0.5rem;
 }
 
-.item-card .recommendation {
+.recommendation {
   font-size: 0.85rem;
   background: rgba(124, 157, 255, 0.1);
   border-radius: 6px;
   padding: 0.4rem 0.55rem;
 }
 
-.item-card .recommendation.upgrade {
+.recommendation.upgrade {
   background: rgba(85, 201, 138, 0.12);
   color: var(--good);
+}
+
+.modal-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
 .hint {
@@ -410,7 +442,8 @@ main {
   margin: 0.7rem 0 0;
 }
 
-.hero-card .skill-link {
+.hero-card .skill-link,
+.modal-body .skill-link {
   display: block;
   width: 100%;
   margin-top: 0.6rem;
@@ -423,7 +456,8 @@ main {
   cursor: pointer;
 }
 
-.hero-card .skill-link:hover {
+.hero-card .skill-link:hover,
+.modal-body .skill-link:hover {
   background: rgba(124, 157, 255, 0.08);
 }
 
@@ -434,25 +468,7 @@ main {
   padding: 1.5rem;
 }
 
-/* --- Hero loadout plan --- */
-
-.loadout-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 0.9rem;
-}
-
-.loadout-card {
-  background: #10121a;
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  padding: 1rem;
-}
-
-.loadout-card .hero-level {
-  color: var(--text-dim);
-  font-size: 0.8rem;
-}
+/* --- Hero loadout plan (rendered inside the hero modal) --- */
 
 .loadout-slot {
   display: grid;
@@ -564,4 +580,277 @@ main {
 
 .socket-effect-row strong {
   color: var(--text);
+}
+
+/* --- Per-item socket advisor --- */
+
+#socket-advisor {
+  margin: 1rem 0 1.4rem;
+  padding-bottom: 1.2rem;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+#socket-advisor h3 {
+  margin: 0 0 0.4rem;
+}
+
+.socket-advisor-controls select {
+  max-width: 100%;
+}
+
+.advice-target {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+  font-size: 0.9rem;
+}
+
+.advice-type-block {
+  background: #10121a;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  margin-top: 0.6rem;
+}
+
+.advice-type-block h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.advice-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.advice-rank {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.owned-badge {
+  margin-left: 0.4rem;
+  color: var(--good);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.advice-row .loadout-note {
+  flex-basis: 100%;
+  color: var(--warn);
+  font-size: 0.72rem;
+  font-style: italic;
+}
+
+/* --- Tab navigation --- */
+
+.tab-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10; /* the dialog lives in the top layer, so this is the only z-index needed */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  background: var(--bg);
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.tab-btn {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+  background: rgba(124, 157, 255, 0.08);
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: rgba(124, 157, 255, 0.08);
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Save-gated panels: empty-state hint before a save is loaded, content after. */
+body:not(.save-loaded) .needs-save-content {
+  display: none;
+}
+
+body.save-loaded .tab-empty-state.needs-save {
+  display: none;
+}
+
+.tab-empty-state {
+  border: 1px dashed var(--panel-border);
+  border-radius: 12px;
+  padding: 2.2rem 1.5rem;
+  text-align: center;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+/* --- Compact upload strip (after a save is loaded) --- */
+
+#upload-section.compact {
+  padding: 0.9rem 1.5rem;
+}
+
+#upload-section.compact .drop-zone {
+  padding: 0.7rem 1rem;
+}
+
+#upload-section.compact .drop-zone p {
+  margin: 0.2rem 0;
+  font-size: 0.85rem;
+}
+
+#upload-section.compact .drop-zone .hint,
+#upload-section.compact .privacy-note {
+  display: none;
+}
+
+#upload-section.compact #file-input {
+  margin-top: 0.4rem;
+}
+
+#upload-section.compact .status-message {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+}
+
+/* --- Modal (native <dialog>) --- */
+
+.app-modal {
+  /* padding:0 is load-bearing: backdrop-click detection in modal.js relies on
+     clicks inside the content never hitting the dialog element itself. */
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel-bg);
+  color: var(--text);
+  width: min(680px, calc(100vw - 2rem));
+  max-height: min(85vh, 900px);
+}
+
+.app-modal::backdrop {
+  background: rgba(10, 12, 18, 0.7);
+}
+
+.app-modal[open] {
+  animation: modal-in 0.15s ease-out;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  max-height: min(85vh, 900px);
+}
+
+.modal-body h3 {
+  margin: 0;
+}
+
+.modal-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+}
+
+.modal-close:hover {
+  color: var(--text);
+  background: rgba(124, 157, 255, 0.08);
+}
+
+.modal-subhead {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  margin: 1.2rem 0 0.5rem;
+}
+
+/* --- Clickable cards --- */
+
+.hero-card.clickable,
+.item-card.clickable {
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+
+.hero-card.clickable:hover,
+.item-card.clickable:hover {
+  border-color: var(--accent-dim);
+}
+
+.card-more-hint {
+  margin-top: 0.5rem;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
+.hero-card.clickable:hover .card-more-hint {
+  color: var(--accent);
+}
+
+/* --- Inventory filters --- */
+
+.inventory-filters {
+  margin-top: 0.4rem;
+}
+
+#inv-search {
+  width: 13rem;
+}
+
+.inventory-filters .check-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  padding-bottom: 0.5rem;
+}
+
+#inv-filter-count {
+  margin: 0 0 0.8rem;
+  font-size: 0.78rem;
 }
