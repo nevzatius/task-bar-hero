@@ -34,6 +34,27 @@ while ((m = nameRe.exec(text))) {
 const distinctMarkers = [...new Set(markers.map((mk) => mk.name))];
 console.log(`Discovered ${distinctMarkers.length} *InfoData tables:`, distinctMarkers);
 
+// Some table chunks bleed into a neighbouring non-InfoData blob (e.g.
+// StageLevelInfoData is followed by a PcSkin sprite table with a different
+// column layout), so tables can opt into a row filter that keeps only rows
+// matching the header's shape.
+const numericRowFilter = (cols, header) =>
+  cols.length === header.length && /^\d+$/.test(cols[0]);
+const ROW_FILTERS = {
+  StageLevelInfoData: numericRowFilter,
+  ItemGroupInfoData: numericRowFilter,
+};
+
+// Default line filter keeps printable-ASCII lines only, which strips the
+// binary junk between tables. ItemGroupInfoData's GroupName column holds
+// Korean text (high bytes in the latin1 view), so it gets a relaxed charset
+// and relies on its row filter instead — without this, every group with a
+// Korean name silently disappears.
+const DEFAULT_LINE_RE = /^[\x20-\x7e]*$/;
+const LINE_RES = {
+  ItemGroupInfoData: /^[\x20-\x7e\x80-\xff]*$/,
+};
+
 function extractTable(tableName) {
   const idx = markers.findIndex((mk) => mk.name === tableName);
   if (idx === -1) throw new Error(`table not found: ${tableName}`);
@@ -45,12 +66,15 @@ function extractTable(tableName) {
   if (!headerMatch) throw new Error(`header not found for ${tableName}`);
   chunk = chunk.slice(headerMatch.index);
 
+  const lineRe = LINE_RES[tableName] ?? DEFAULT_LINE_RE;
   const lines = chunk
     .split(/\r?\n/)
-    .filter((line) => /^[\x20-\x7e]*$/.test(line) && line.length > 0);
+    .filter((line) => lineRe.test(line) && line.length > 0);
 
   const header = lines[0].split(",");
-  const rows = lines.slice(1).map((line) => line.split(","));
+  let rows = lines.slice(1).map((line) => line.split(","));
+  const rowFilter = ROW_FILTERS[tableName];
+  if (rowFilter) rows = rows.filter((cols) => rowFilter(cols, header));
   return { header, rows };
 }
 
@@ -77,6 +101,13 @@ const tables = [
   "MaterialInfoData",
   "StatModGroupInfoData",
   "StatModInfoData",
+  "StageInfoData",
+  "StageLevelInfoData",
+  "DropInfoData",
+  "ItemGroupInfoData",
+  "MonsterInfoData",
+  "OfflineRewardInfoData",
+  "LevelInfoData",
 ];
 
 const raw = {};
@@ -246,13 +277,193 @@ const materials = raw.MaterialInfoData.map((m) => {
   };
 });
 
+// --- Farm data: stages.json + drops.json ---
+//
+// Drop chain (confirmed table structure): StageInfoData.MonsterDropItemKey /
+// BossDropItemKey are STAGEBOX ItemKeys dropping at *DropItemRate permill per
+// kill; each box's own ItemInfoData.DropKey points into DropInfoData, whose
+// weighted rows reference ItemGroupInfoData groups of concrete ItemKeys.
+// FirstClearDropKey is a DropKey directly (one-time reward).
+// All rates/weights/rewards below are exact datamined values; the derived
+// expected-value math carries assumptions flagged inline.
+
+const stageLevelMultByLevel = new Map(
+  raw.StageLevelInfoData.map((r) => [r.StageLevel, r])
+);
+const offlineByLevel = new Map(
+  raw.OfflineRewardInfoData.map((r) => [r.StageLevel, r])
+);
+const monstersByKey = new Map(raw.MonsterInfoData.map((r) => [r.MonsterKey, r]));
+
+// "10011_1000 10021_1000" -> [{ monsterKey, weight }]. The _suffix is
+// interpreted as a spawn-mix weight (permill) — an assumption; it is only
+// used to average per-kill gold/XP over the stage's monster roster.
+function parseMonsterMix(s) {
+  return (s || "")
+    .split(" ")
+    .filter(Boolean)
+    .map((pair) => {
+      const [monsterKey, weight] = pair.split("_");
+      return { monsterKey, weight: num(weight) || 1 };
+    });
+}
+
+function weightedAvgReward(mix, field) {
+  let total = 0;
+  let sum = 0;
+  for (const { monsterKey, weight } of mix) {
+    const mon = monstersByKey.get(monsterKey);
+    if (!mon) continue;
+    total += weight;
+    sum += weight * num(mon[field]);
+  }
+  return total > 0 ? sum / total : 0;
+}
+
+const round1 = (v) => Math.round(v * 10) / 10;
+
+const stages = raw.StageInfoData.map((s) => {
+  const mult = stageLevelMultByLevel.get(s.StageLevel);
+  // StageLevelInfoData multipliers are percents (100 = 1x) — exact game data.
+  const goldMult = (num(mult?.MonsterGoldMultiplier) || 100) / 100;
+  const expMult = (num(mult?.MonsterExpMultiplier) || 100) / 100;
+
+  // Boss*Multiplier is interpreted as permill (2000 = 2x), matching the
+  // permill convention of the other StageInfoData rate columns. NOT yet
+  // confirmed in game code — if disproven, only this divisor changes.
+  const bossGoldMult = (num(s.BossGoldMultiplier) || 1000) / 1000;
+  const bossExpMult = (num(s.BossExpMultiplier) || 1000) / 1000;
+
+  const boss = monstersByKey.get(s.BossMonsterKey);
+  const bossGold = num(boss?.RewardGold) * bossGoldMult * goldMult;
+  const bossExp = num(boss?.RewardExp) * bossExpMult * expMult;
+
+  const mix = parseMonsterMix(s.Monsters);
+  const waveKills = num(s.WaveAmount) * num(s.WaveMonsterAmount);
+  const avgGold = weightedAvgReward(mix, "RewardGold") * goldMult;
+  const avgExp = weightedAvgReward(mix, "RewardExp") * expMult;
+
+  const offline = offlineByLevel.get(s.StageLevel);
+
+  return {
+    stageKey: num(s.StageKey),
+    type: s.STAGETYPE,
+    difficulty: s.STAGEDIFFICULITY,
+    act: num(s.Act),
+    stageNo: num(s.StageNo),
+    stageLevel: num(s.StageLevel),
+    waveKills, // assumption: WaveAmount x WaveMonsterAmount regular kills...
+    killsPerClear: waveKills + 1, // ...plus the stage boss as one extra kill
+    goldPerClear: round1(waveKills * avgGold + bossGold),
+    expPerClear: round1(waveKills * avgExp + bossExp),
+    monsterBox: s.MonsterDropItemKey
+      ? { itemKey: num(s.MonsterDropItemKey), ratePermill: num(s.MonsterDropItemRate) }
+      : null,
+    // ACTBOSS rows leave BossDropItemRate empty — treated as a guaranteed
+    // drop (ratePermill null → 1000), an assumption.
+    bossBox: s.BossDropItemKey
+      ? { itemKey: num(s.BossDropItemKey), ratePermill: s.BossDropItemRate ? num(s.BossDropItemRate) : null }
+      : null,
+    firstClearDropKey: s.FirstClearDropKey ? num(s.FirstClearDropKey) : null,
+    soulstone: s.SoulstoneItemKey
+      ? { itemKey: num(s.SoulstoneItemKey), amount: num(s.SoulstoneAmount) }
+      : null,
+    offline: offline
+      ? {
+          baseGold: num(offline.BaseGold),
+          baseExp: num(offline.BaseExp),
+          killCount: num(offline.KillCount),
+          clearCount: num(offline.ClearCount),
+        }
+      : null,
+  };
+});
+
+// Only ship the drop tables stages can actually reach (36 of 245 DropKeys,
+// ~2.4k of 6k DropInfoData rows) instead of the whole raw table.
+const boxItemKeys = new Set();
+const referencedDropKeys = new Set();
+for (const st of stages) {
+  if (st.monsterBox) boxItemKeys.add(String(st.monsterBox.itemKey));
+  if (st.bossBox) boxItemKeys.add(String(st.bossBox.itemKey));
+  if (st.firstClearDropKey) referencedDropKeys.add(String(st.firstClearDropKey));
+}
+
+const boxes = [...boxItemKeys].map((key) => {
+  const it = itemInfoByKey.get(key);
+  if (!it) throw new Error(`stage box item not found in ItemInfoData: ${key}`);
+  referencedDropKeys.add(it.DropKey);
+  return {
+    itemKey: num(it.ItemKey),
+    name: it.NameKey || null,
+    grade: it.GRADE,
+    dropKey: num(it.DropKey),
+    dropCooldown: num(it.DropCooldown),
+    icon: iconRelPath(it),
+  };
+});
+
+const groupItemsByKey = new Map();
+for (const row of raw.ItemGroupInfoData) {
+  const list = groupItemsByKey.get(row.ItemGroupKey) ?? [];
+  list.push(num(row.ItemKey));
+  groupItemsByKey.set(row.ItemGroupKey, list);
+}
+
+const dropTables = {};
+const usedGroups = {};
+let keptDropRows = 0;
+// DropType semantics (observed values, meaning inferred from structure):
+//  - EachDropOneWeight / EachDropOneWeight_DLCVariant -> "weight": one roll
+//    from the weighted pool; HeroKeyCondition rows (only 501 Hunter / 601
+//    Slayer here) join the pool only when the player owns that DLC hero.
+//  - SelectOneByClass -> "selectByClass": the reward matching the hero-class
+//    condition is granted (all six heroKeys appear; used by first-clear
+//    tables that hand out class-appropriate boxes).
+const DROP_TYPE_MAP = {
+  EachDropOneWeight: "weight",
+  EachDropOneWeight_DLCVariant: "weight",
+  SelectOneByClass: "selectByClass",
+};
+
+for (const row of raw.DropInfoData) {
+  if (!referencedDropKeys.has(row.DropKey)) continue;
+  keptDropRows++;
+  const type = DROP_TYPE_MAP[row.DropType];
+  if (!type) throw new Error(`unknown DropType ${row.DropType} in DropKey ${row.DropKey}`);
+  const table = (dropTables[row.DropKey] ??= { type, entries: [] });
+  if (table.type !== type) throw new Error(`mixed DropTypes in DropKey ${row.DropKey}`);
+
+  // REWARDTYPE is either ITEMGROUP (RewardKey -> ItemGroupInfoData) or ITEM
+  // (RewardKey is a concrete ItemKey directly).
+  const entry = { weight: num(row.Weight) };
+  if (row.REWARDTYPE === "ITEMGROUP") {
+    entry.group = num(row.RewardKey);
+    usedGroups[row.RewardKey] ??= groupItemsByKey.get(row.RewardKey) ?? [];
+  } else {
+    entry.item = num(row.RewardKey);
+  }
+  const heroCond = num(row.HeroKeyCondition);
+  if (heroCond) entry.heroCond = heroCond;
+  table.entries.push(entry);
+}
+
+const dropsOut = { boxes, groups: usedGroups, tables: dropTables };
+
 fs.writeFileSync(path.join(outDir, "items.json"), JSON.stringify(items));
 fs.writeFileSync(path.join(outDir, "heroes.json"), JSON.stringify(heroes, null, 2));
 fs.writeFileSync(path.join(outDir, "grades.json"), JSON.stringify(grades, null, 2));
 fs.writeFileSync(path.join(outDir, "materials.json"), JSON.stringify(materials));
+fs.writeFileSync(path.join(outDir, "stages.json"), JSON.stringify(stages));
+fs.writeFileSync(path.join(outDir, "drops.json"), JSON.stringify(dropsOut));
 
 console.log(`\nFinal site data:`);
 console.log(`  items.json: ${items.length} items`);
 console.log(`  heroes.json: ${heroes.length} heroes`);
 console.log(`  grades.json: ${grades.length} grades`);
 console.log(`  materials.json: ${materials.length} materials`);
+console.log(`  stages.json: ${stages.length} stages`);
+console.log(
+  `  drops.json: ${boxes.length} boxes, ${referencedDropKeys.size} drop keys, ` +
+    `${keptDropRows} rows, ${Object.keys(usedGroups).length} item groups`
+);

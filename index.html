@@ -34,6 +34,7 @@
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="envanter">Envanter</button>
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="tas-rehberi">Taş Rehberi</button>
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="skill-rehberi">Skill Rehberi</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="farm-rehberi">Farm Rehberi</button>
     </nav>
 
     <section id="panel-kahramanlar" class="tab-panel active" role="tabpanel">
@@ -153,6 +154,52 @@
       </div>
 
       <div id="skill-guide-output"></div>
+    </section>
+    </section>
+
+    <section id="panel-farm-rehberi" class="tab-panel" role="tabpanel">
+    <section id="farm-guide-section" class="panel">
+      <h2>Farm Rehberi</h2>
+      <p class="hint">
+        Bölüm listesi, kutu düşme oranları ve kutu içerikleri oyunun kendi drop
+        tablolarından datamine edildi — <strong>oranlar ve ağırlıklar kesin oyun verisidir</strong>.
+        Bunlardan hesaplanan "beklenen adet" değerleri ise tablo yapısından çıkarılan bir
+        olasılık modeline dayanır (kutu bekleme süresi yok sayılır), yaklaşık kabul et.
+        Topluluk kuralı: <em>~20 saniyede temizleyebildiğin en yüksek bölümde farm yap</em> —
+        bu bir topluluk tavsiyesidir, oyun verisi değil.
+      </p>
+
+      <div class="skill-calc farm-controls">
+        <label for="farm-goal-select">Hedef
+          <select id="farm-goal-select">
+            <option value="gold">Altın</option>
+            <option value="exp">Tecrübe (XP)</option>
+            <option value="item">Belirli Eşya</option>
+          </select>
+        </label>
+        <label for="farm-item-search" id="farm-item-wrap" hidden>Eşya
+          <input type="search" id="farm-item-search" placeholder="Eşya ara… (ör. Ruh Taşı)" autocomplete="off" />
+        </label>
+        <label for="farm-difficulty-filter">Zorluk
+          <select id="farm-difficulty-filter">
+            <option value="">Tümü</option>
+            <option value="NORMAL">Normal</option>
+            <option value="NIGHTMARE">Kabus</option>
+            <option value="HELL">Cehennem</option>
+            <option value="TORMENT">Azap</option>
+          </select>
+        </label>
+        <label class="check-label">
+          <input type="checkbox" id="farm-dlc-check" checked />
+          Hunter/Slayer (DLC) sahibim
+        </label>
+        <label for="farm-seconds-input">Temizleme süren (sn)
+          <input type="number" id="farm-seconds-input" min="1" placeholder="ops." />
+        </label>
+      </div>
+
+      <div id="farm-suggest" class="farm-suggest" hidden></div>
+      <div id="farm-output"><p class="hint">Yükleniyor…</p></div>
     </section>
     </section>
   </main>

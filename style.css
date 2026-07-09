@@ -854,3 +854,122 @@ body:has(dialog[open]) {
   margin: 0 0 0.8rem;
   font-size: 0.78rem;
 }
+
+/* --- Farm Rehberi --- */
+
+#farm-item-search {
+  width: 15rem;
+}
+
+.farm-controls .check-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  padding-bottom: 0.5rem;
+}
+
+.farm-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 16rem;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 0.3rem;
+  background: #10121a;
+}
+
+.farm-suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 0.3rem 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.farm-suggest-item:hover {
+  background: var(--accent-dim);
+}
+
+.farm-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 0.8rem;
+}
+
+.farm-row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1.4fr) 1fr 1fr 1.2fr;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.farm-row.clickable {
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.farm-row.clickable:nth-child(even) {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.farm-row.clickable:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.farm-row.farm-head {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  border-bottom: 1px solid var(--panel-border);
+  border-radius: 0;
+}
+
+.farm-stage-name {
+  font-weight: 600;
+  margin-right: 0.4rem;
+}
+
+.farm-stage-level {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.farm-drop-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.farm-drop-chance {
+  margin-left: auto;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.farm-box-rate {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+@media (max-width: 640px) {
+  .farm-row {
+    grid-template-columns: minmax(8rem, 1.5fr) 1fr 1fr;
+  }
+  .farm-row > span:last-child {
+    display: none;
+  }
+}

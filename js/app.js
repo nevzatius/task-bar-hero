@@ -5,6 +5,7 @@ import { buildRecommender } from "./recommender.js";
 import { SKILL_PLANS, buildSkillPlan, groupSkillPlan, buildActiveLoadoutPlan, ACTIVE_SLOTS } from "./skill-guide.js";
 import { buildLoadoutPlanner } from "./loadout-planner.js";
 import { buildSocketGuide } from "./socket-guide.js";
+import { buildFarmGuide } from "./farm-guide.js";
 import { itemIconImg, heroIconImg, colorForGrade } from "./icons.js";
 import { openModal, closeModal, modalBody } from "./modal.js";
 
@@ -28,6 +29,23 @@ const skillClassSelect = document.getElementById("skill-class-select");
 const skillLevelInput = document.getElementById("skill-level-input");
 const skillGuideBtn = document.getElementById("skill-guide-btn");
 const skillGuideOutput = document.getElementById("skill-guide-output");
+const farmGoalSelect = document.getElementById("farm-goal-select");
+const farmItemWrap = document.getElementById("farm-item-wrap");
+const farmItemSearch = document.getElementById("farm-item-search");
+const farmDifficultyFilter = document.getElementById("farm-difficulty-filter");
+const farmDlcCheck = document.getElementById("farm-dlc-check");
+const farmSecondsInput = document.getElementById("farm-seconds-input");
+const farmSuggest = document.getElementById("farm-suggest");
+const farmOutput = document.getElementById("farm-output");
+
+// Farm guide state; initialized lazily on first tab visit (ensureFarmGuide)
+// because it needs the full game data download. Declared before the initial
+// activateTab call below so a #farm-rehberi deep link doesn't hit the TDZ.
+let farmGuidePromise = null;
+let farmGuide = null;
+let farmDb = null;
+let farmItems = null; // [{ def, label, searchText }] for the item search box
+let farmSelectedItemKey = null;
 
 let gameDataPromise = null;
 function getGameData() {
@@ -44,7 +62,7 @@ function setStatus(message, kind) {
 // --- Tab navigation. Tab names live in location.hash so tabs are linkable
 // and back-button friendly; hash values deliberately match no element id
 // (panels are #panel-<name>) so setting the hash never scroll-jumps.
-const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi"];
+const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi", "farm-rehberi"];
 
 function activateTab(name) {
   if (!TAB_NAMES.includes(name)) name = TAB_NAMES[0];
@@ -56,6 +74,7 @@ function activateTab(name) {
   for (const panel of document.querySelectorAll(".tab-panel")) {
     panel.classList.toggle("active", panel.id === `panel-${name}`);
   }
+  if (name === "farm-rehberi") ensureFarmGuide();
 }
 
 function switchTab(name) {
@@ -589,6 +608,269 @@ function renderSkillGuide() {
 skillGuideBtn.addEventListener("click", renderSkillGuide);
 skillLevelInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") renderSkillGuide();
+});
+
+// --- Farm Rehberi (save-free, lazy-loaded on first tab visit) ---
+
+function ensureFarmGuide() {
+  if (farmGuidePromise) return;
+  farmGuidePromise = getGameData()
+    .then((db) => {
+      farmDb = db;
+      farmGuide = buildFarmGuide(db);
+      farmItems = farmGuide.farmableItems().map((def) => {
+        const label = farmItemLabel(def);
+        return { def, label, searchText: label.toLocaleLowerCase("tr") };
+      });
+      renderFarmGuide();
+    })
+    .catch((err) => {
+      console.error(err);
+      farmOutput.innerHTML = `<p class="hint">Oyun verisi yüklenemedi: ${err.message}</p>`;
+    });
+}
+
+// displayName alone is ambiguous for stones ("Sıradan Süsleme Taşı" x3), so
+// materials get their effect stat(s) appended.
+function farmItemLabel(def) {
+  const base = farmDb.displayName(def);
+  if (def.itemType === "MATERIAL") {
+    const material = farmDb.materialsByKey.get(def.itemKey);
+    const stats = [...new Set((material?.effects ?? []).map((e) => farmDb.labelForStat(e.statType)))];
+    if (stats.length) return `${base} (${stats.join(" / ")})`;
+  }
+  return base;
+}
+
+const FARM_VIA_TR = {
+  monsterBox: "Canavar Kutusu",
+  bossBox: "Boss Kutusu",
+  firstClear: "İlk temizleme ödülü",
+};
+
+const fmtGold = (v) => v.toLocaleString("tr-TR", { maximumFractionDigits: 1 });
+
+function fmtChance(p) {
+  if (p == null) return "—";
+  if (p >= 0.01) return `%${(p * 100).toFixed(1)}`;
+  if (p >= 0.0001) return `%${(p * 100).toFixed(2)}`;
+  return p > 0 ? "<%0,01" : "%0";
+}
+
+// Adaptive precision for expected-count values (can span 0.0001..100+).
+function fmtExpected(v) {
+  if (v >= 10) return v.toFixed(0);
+  if (v >= 1) return v.toFixed(1);
+  if (v >= 0.01) return v.toFixed(2);
+  return v > 0 ? v.toFixed(4) : "0";
+}
+
+function stageChipHtml(stage) {
+  return `<span class="farm-stage-name">${farmDb.stageDisplayName(stage)}</span>
+    <span class="farm-stage-level">Sv.${stage.stageLevel}${stage.type === "ACTBOSS" ? " · Act Boss" : ""}</span>`;
+}
+
+function renderFarmGuide() {
+  if (!farmGuide) return;
+  const goal = farmGoalSelect.value;
+  farmItemWrap.hidden = goal !== "item";
+  if (goal !== "item") farmSuggest.hidden = true;
+
+  if (goal === "item") {
+    if (!farmSelectedItemKey) {
+      farmOutput.innerHTML = `<p class="hint">Yukarıdaki kutuya eşya adı yaz (en az 2 harf) ve listeden seç.</p>`;
+      return;
+    }
+    renderFarmItemSources();
+  } else {
+    renderFarmRanking(goal);
+  }
+}
+
+function renderFarmRanking(goal) {
+  const difficulty = farmDifficultyFilter.value || null;
+  const seconds = Number(farmSecondsInput.value) || null;
+  const ranked = farmGuide.rankStages(goal, { difficulty });
+  const metricLabel = goal === "gold" ? "Altın" : "XP";
+
+  const rowsHtml = ranked
+    .map(
+      ({ stage, perClear, perKill }) => `
+      <div class="farm-row clickable" data-stage-key="${stage.stageKey}">
+        <span>${stageChipHtml(stage)}</span>
+        <span>${fmtGold(perClear)}</span>
+        <span>${fmtGold(perKill)}</span>
+        <span>${seconds ? `${fmtGold((perClear * 3600) / seconds)}/saat` : "—"}</span>
+      </div>`
+    )
+    .join("");
+
+  farmOutput.innerHTML = `
+    <div class="farm-table">
+      <div class="farm-row farm-head">
+        <span>Bölüm</span>
+        <span>${metricLabel} / temizleme</span>
+        <span>${metricLabel} / kill</span>
+        <span>Saatte (girdiğin süreyle)</span>
+      </div>
+      ${rowsHtml}
+    </div>
+    <p class="hint">Detaylı döküm (kutu içerikleri, ruh taşı bedeli, çevrimdışı ödül) için bir satıra tıkla.
+    Act Boss bölümleri girişte ruh taşı harcattığı için bu sıralamaya dahil edilmedi.</p>`;
+}
+
+function renderFarmItemSources() {
+  const def = farmDb.itemsByKey.get(farmSelectedItemKey);
+  const difficulty = farmDifficultyFilter.value || null;
+  const dlcOwned = farmDlcCheck.checked;
+  const seconds = Number(farmSecondsInput.value) || null;
+  const sources = farmGuide.dropSources(farmSelectedItemKey, { dlcOwned, difficulty });
+
+  const headHtml = `<div class="advice-target">
+    <span class="material-icon">${itemIconImg(def, { size: 32 })}</span>
+    <span><strong>${farmItemLabel(def)}</strong> nereden düşer?</span>
+  </div>`;
+
+  if (sources.length === 0) {
+    farmOutput.innerHTML = `${headHtml}<p class="hint">Bu eşya seçili filtrelerle hiçbir bölümden düşmüyor.
+      (DLC işaretini veya zorluk filtresini değiştirmeyi dene.)</p>`;
+    return;
+  }
+
+  const rowsHtml = sources
+    .map((s) => {
+      const expected =
+        s.via === "firstClear"
+          ? "tek seferlik"
+          : `${fmtExpected(s.expectedPerClear)}${seconds ? ` · ${fmtExpected((s.expectedPerClear * 3600) / seconds)}/saat` : ""}`;
+      return `
+      <div class="farm-row clickable" data-stage-key="${s.stage.stageKey}">
+        <span>${stageChipHtml(s.stage)}</span>
+        <span>${FARM_VIA_TR[s.via]}${s.box ? ` · ${s.box.name}` : ""}</span>
+        <span>${fmtChance(s.chancePerBox)}</span>
+        <span>${expected}</span>
+      </div>`;
+    })
+    .join("");
+
+  farmOutput.innerHTML = `${headHtml}
+    <div class="farm-table farm-table-sources">
+      <div class="farm-row farm-head">
+        <span>Bölüm</span>
+        <span>Kaynak</span>
+        <span>Kutu içi şans</span>
+        <span>Beklenen adet / temizleme</span>
+      </div>
+      ${rowsHtml}
+    </div>
+    <p class="hint">"Kutu içi şans": kutu açıldığında bu eşyanın çıkma olasılığı.
+    "Beklenen adet": kutunun düşme oranı da hesaba katılmış temizleme başına ortalama.</p>`;
+}
+
+function renderFarmSuggest() {
+  if (!farmItems) return;
+  const query = farmItemSearch.value.trim().toLocaleLowerCase("tr");
+  if (query.length < 2) {
+    farmSuggest.hidden = true;
+    farmSuggest.innerHTML = "";
+    return;
+  }
+  const matches = farmItems.filter((it) => it.searchText.includes(query)).slice(0, 30);
+  farmSuggest.innerHTML = matches.length
+    ? matches
+        .map(
+          (it) =>
+            `<button type="button" class="farm-suggest-item" data-item-key="${it.def.itemKey}">
+              ${itemIconImg(it.def, { size: 22 })} <span>${it.label}</span>
+            </button>`
+        )
+        .join("")
+    : `<p class="hint">Eşleşen eşya yok.</p>`;
+  farmSuggest.hidden = false;
+}
+
+function openStageModal(stageKey) {
+  const detail = farmGuide.stageDetail(stageKey, { dlcOwned: farmDlcCheck.checked });
+  if (!detail) return;
+  const { stage, boxes, firstClear } = detail;
+
+  const statRows = [
+    stage.type !== "ACTBOSS" ? `<div class="skill-plan-row"><span>Kill / temizleme</span><span class="skill-plan-points">${stage.killsPerClear}</span></div>` : "",
+    `<div class="skill-plan-row"><span>Altın / temizleme (tahmini)</span><span class="skill-plan-points">${fmtGold(stage.goldPerClear)}</span></div>`,
+    `<div class="skill-plan-row"><span>XP / temizleme (tahmini)</span><span class="skill-plan-points">${fmtGold(stage.expPerClear)}</span></div>`,
+    stage.soulstone
+      ? `<div class="skill-plan-row"><span>Giriş bedeli</span><span class="skill-plan-points">${stage.soulstone.amount} × ${farmDb.displayName(farmDb.itemsByKey.get(stage.soulstone.itemKey))}</span></div>`
+      : "",
+    stage.offline
+      ? `<div class="skill-plan-row"><span>Çevrimdışı ödül (temel)</span><span class="skill-plan-points">${stage.offline.baseGold} altın · ${stage.offline.baseExp} XP</span></div>`
+      : "",
+  ].join("");
+
+  const boxBlocksHtml = boxes
+    .map((b) => {
+      const shown = b.drops.slice(0, 12);
+      const moreCount = b.drops.length - shown.length;
+      const dropRows = shown
+        .map(
+          (d) => `<div class="socket-effect-row farm-drop-row">
+            <span class="material-icon">${itemIconImg(d.def, { size: 24 })}</span>
+            <span>${farmItemLabel(d.def)}</span>
+            <span class="farm-drop-chance">${fmtChance(d.chance)}</span>
+          </div>`
+        )
+        .join("");
+      return `<div class="advice-type-block">
+        <h4>${itemIconImg(farmDb.itemsByKey.get(b.box.itemKey), { size: 26 })} ${b.box.name}
+          <span class="farm-box-rate">· ${FARM_VIA_TR[b.via]} · düşme oranı ${fmtChance(b.ratePermill / 1000)}
+          · ~${fmtExpected(b.boxesPerClear)} kutu/temizleme</span></h4>
+        ${dropRows}
+        ${moreCount > 0 ? `<p class="hint">+ ${moreCount} eşya daha (düşük olasılıklı).</p>` : ""}
+      </div>`;
+    })
+    .join("");
+
+  const firstClearHtml = firstClear
+    ? `<h4 class="modal-subhead">İlk Temizleme Ödülü (tek seferlik)</h4>` +
+      firstClear
+        .map((r) => {
+          const cond = r.heroCond ? ` — ${farmDb.heroesByKey.get(r.heroCond)?.class ?? `Kahraman #${r.heroCond}`} sınıfına` : "";
+          return `<div class="socket-effect-row farm-drop-row">
+            <span class="material-icon">${itemIconImg(r.def, { size: 24 })}</span>
+            <span>${farmDb.displayName(r.def)}${cond}</span>
+            <span class="farm-drop-chance">${r.chance != null ? fmtChance(r.chance) : ""}</span>
+          </div>`;
+        })
+        .join("")
+    : "";
+
+  openModal(`
+    <h3>${farmDb.stageDisplayName(stage)}</h3>
+    <p class="hint">Bölüm seviyesi ${stage.stageLevel} · ${farmDb.labelForDifficulty(stage.difficulty)} zorluk</p>
+    <div class="skill-plan-rows">${statRows}</div>
+    <h4 class="modal-subhead">Kutular ve İçerikleri</h4>
+    ${boxBlocksHtml || `<p class="hint">Bu bölümde kutu düşmüyor.</p>`}
+    ${firstClearHtml}
+  `);
+}
+
+farmGoalSelect.addEventListener("change", renderFarmGuide);
+farmDifficultyFilter.addEventListener("change", renderFarmGuide);
+farmDlcCheck.addEventListener("change", renderFarmGuide);
+farmSecondsInput.addEventListener("input", renderFarmGuide);
+farmItemSearch.addEventListener("input", renderFarmSuggest);
+
+farmSuggest.addEventListener("click", (e) => {
+  const btn = e.target.closest(".farm-suggest-item[data-item-key]");
+  if (!btn) return;
+  farmSelectedItemKey = Number(btn.dataset.itemKey);
+  farmItemSearch.value = farmItems.find((it) => it.def.itemKey === farmSelectedItemKey)?.label ?? "";
+  farmSuggest.hidden = true;
+  renderFarmGuide();
+});
+
+farmOutput.addEventListener("click", (e) => {
+  const row = e.target.closest(".farm-row[data-stage-key]");
+  if (row) openStageModal(Number(row.dataset.stageKey));
 });
 
 // Prefill the skill calculator and switch to its tab (replaces the old
