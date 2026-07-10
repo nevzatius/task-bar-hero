@@ -118,6 +118,11 @@ export function buildFarmGuide(db) {
       return defs;
     },
 
+    // Whether any box can drop the item under the given DLC setting.
+    isFarmable(itemKey, dlcOwned = true) {
+      return itemIndex(dlcOwned).has(itemKey);
+    },
+
     // "Which stages drop item X?" — sorted by expected count per clear.
     dropSources(itemKey, { dlcOwned = true, difficulty = null } = {}) {
       const perDrop = itemIndex(dlcOwned).get(itemKey) ?? new Map();

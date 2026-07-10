@@ -328,9 +328,10 @@ const stages = raw.StageInfoData.map((s) => {
   const goldMult = (num(mult?.MonsterGoldMultiplier) || 100) / 100;
   const expMult = (num(mult?.MonsterExpMultiplier) || 100) / 100;
 
-  // Boss*Multiplier is interpreted as permill (2000 = 2x), matching the
-  // permill convention of the other StageInfoData rate columns. NOT yet
-  // confirmed in game code — if disproven, only this divisor changes.
+  // Boss*Multiplier is permill (2000 = 2x). Confirmed: tbh.city/mechanics
+  // publishes the formula (RewardGold x BossGoldMultiplier/1000 x
+  // MonsterGoldMultiplier/100), and this pipeline reproduces the community
+  // anchor values exactly (1-1: 140 gold / 155 XP; 1-10 boss: 3250 / 1332).
   const bossGoldMult = (num(s.BossGoldMultiplier) || 1000) / 1000;
   const bossExpMult = (num(s.BossExpMultiplier) || 1000) / 1000;
 
