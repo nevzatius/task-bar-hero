@@ -21,6 +21,8 @@ const invSearch = document.getElementById("inv-search");
 const invGradeFilter = document.getElementById("inv-grade-filter");
 const invPartsFilter = document.getElementById("inv-parts-filter");
 const invUpgradesOnly = document.getElementById("inv-upgrades-only");
+const invShowPrices = document.getElementById("inv-show-prices");
+const heroShowPrices = document.getElementById("hero-show-prices");
 const invFilterCount = document.getElementById("inv-filter-count");
 const socketGuideContent = document.getElementById("socket-guide-content");
 const socketItemSelect = document.getElementById("socket-item-select");
@@ -70,6 +72,13 @@ function getGameData() {
 // (not fetched live — Steam's endpoints don't send CORS headers).
 let marketPricesPromise = null;
 let marketPrices = null;
+// Gear-only price lookup ("SWORD|65|LEGENDARY" -> price entry), derived from
+// marketPrices once loaded. Steam's own item names/types encode gearType +
+// level + grade for equipment, so this key is exact and collision-free —
+// materials have hand-picked flavor names we have no way to resolve locally,
+// so they're not looked up at all.
+let marketPriceByGearKey = null;
+let showMarketPrices = false;
 
 function setStatus(message, kind) {
   statusEl.textContent = message;
@@ -167,7 +176,7 @@ function equipListHtml(hero) {
       if (!itemDef) {
         return `<div class="equip-slot empty"><span class="slot-name">${slotLabel}</span><span class="item-name">Boş</span></div>`;
       }
-      return `<div class="equip-slot clickable" data-unique-id="${uniqueId}" title="Item detayı ve taş önerisi"><span class="slot-icon">${itemIconImg(itemDef, { size: 26 })}</span><span class="slot-name">${slotLabel}</span><span class="item-name">${db.displayName(itemDef)}</span></div>`;
+      return `<div class="equip-slot clickable" data-unique-id="${uniqueId}" title="Item detayı ve taş önerisi"><span class="slot-icon">${itemIconImg(itemDef, { size: 26 })}</span><span class="slot-name">${slotLabel}</span><span class="item-name">${db.displayName(itemDef)}</span>${marketPriceBadgeHtml(itemDef)}</div>`;
     })
     .join("");
 }
@@ -232,8 +241,55 @@ function itemMetaLine(db, itemDef) {
   return metaParts.join(" · ");
 }
 
-// Precomputed inventory rows (card HTML + filter fields), rebuilt per save
-// load and filtered on every filter-input event without re-scoring.
+function steamPriceFor(itemDef) {
+  if (!marketPriceByGearKey || !itemDef || itemDef.itemType !== "GEAR") return null;
+  return marketPriceByGearKey.get(`${itemDef.gearType}|${itemDef.level}|${itemDef.grade}`) ?? null;
+}
+
+// Only rendered for GEAR (materials have hand-picked Steam names we can't
+// resolve from our data — see marketPriceByGearKey comment above).
+function marketPriceBadgeHtml(itemDef) {
+  if (!showMarketPrices || itemDef.itemType !== "GEAR") return "";
+  const price = steamPriceFor(itemDef);
+  return price
+    ? `<span class="steam-price-badge">${price.priceText}</span>`
+    : `<span class="steam-price-badge no-price">Steam fiyatı yok</span>`;
+}
+
+function setShowMarketPrices(value) {
+  showMarketPrices = value;
+  invShowPrices.checked = value;
+  heroShowPrices.checked = value;
+  const applyRender = () => {
+    renderInventoryGrid();
+    if (appCtx) renderHeroes(appCtx.save, appCtx.db);
+  };
+  if (value && !marketPriceByGearKey) ensureMarketPrices().then(applyRender);
+  else applyRender();
+}
+
+// cardHtml is built at render time (not cached) so it reflects the current
+// showMarketPrices toggle without needing to rebuild the whole inventory view.
+function itemCardHtml(db, uniqueId, itemDef, recommendationHtml) {
+  const isGear = itemDef.itemType === "GEAR";
+  return `
+      <div class="item-card rarity-${(itemDef.grade ?? "").toLowerCase()}${isGear ? " clickable" : ""}"
+        ${isGear ? `data-unique-id="${uniqueId}"` : ""}
+        style="--grade-color: ${colorForGrade(itemDef.grade)}">
+        <div class="item-card-head">
+          <span class="item-icon">${itemIconImg(itemDef)}</span>
+          <div>
+            <div class="item-name">${db.displayName(itemDef)}</div>
+            <div class="item-meta">${itemMetaLine(db, itemDef)}</div>
+          </div>
+          ${marketPriceBadgeHtml(itemDef)}
+        </div>
+        ${recommendationHtml}
+      </div>`;
+}
+
+// Precomputed inventory rows (filter fields + recommendation HTML), rebuilt
+// per save load and filtered on every filter-input event without re-scoring.
 let inventoryView = null;
 
 function buildInventoryView(save, db, recommender) {
@@ -250,21 +306,6 @@ function buildInventoryView(save, db, recommender) {
     const best = ranked[0] ?? null;
     const recommendationHtml = best ? recommendationRowHtml(best) : "";
 
-    const isGear = itemDef.itemType === "GEAR";
-    const cardHtml = `
-      <div class="item-card rarity-${(itemDef.grade ?? "").toLowerCase()}${isGear ? " clickable" : ""}"
-        ${isGear ? `data-unique-id="${uniqueId}"` : ""}
-        style="--grade-color: ${colorForGrade(itemDef.grade)}">
-        <div class="item-card-head">
-          <span class="item-icon">${itemIconImg(itemDef)}</span>
-          <div>
-            <div class="item-name">${db.displayName(itemDef)}</div>
-            <div class="item-meta">${itemMetaLine(db, itemDef)}</div>
-          </div>
-        </div>
-        ${recommendationHtml}
-      </div>`;
-
     if (itemDef.grade) gradeOrder.set(itemDef.grade, itemDef.gradeOrder ?? 0);
     if (itemDef.parts) partsSet.add(itemDef.parts);
 
@@ -279,7 +320,7 @@ function buildInventoryView(save, db, recommender) {
       ]
         .join(" ")
         .toLocaleLowerCase("tr"),
-      cardHtml,
+      recommendationHtml,
     });
   }
 
@@ -316,7 +357,10 @@ function renderInventoryGrid() {
         (r.best && !r.best.isLocked && (r.best.isUpgrade || r.best.isEmpty)))
   );
   invFilterCount.textContent = `${rows.length} / ${inventoryView.rows.length} item gösteriliyor.`;
-  inventoryGrid.innerHTML = rows.map((r) => r.cardHtml).join("");
+  const { db } = appCtx;
+  inventoryGrid.innerHTML = rows
+    .map((r) => itemCardHtml(db, r.uniqueId, r.itemDef, r.recommendationHtml))
+    .join("");
 }
 
 function loadoutPlanHtml(hero) {
@@ -981,6 +1025,15 @@ function ensureMarketPrices() {
     })
     .then((data) => {
       marketPrices = data;
+      marketPriceByGearKey = new Map();
+      for (const it of data.items) {
+        // "Sword - Lv. 65" -> gearType/level; "Frozen Sword (Legendary) A" -> grade.
+        const typeMatch = it.type.match(/^([A-Za-z]+) - Lv\. (\d+)$/);
+        const gradeMatch = it.name.match(/\(([A-Za-z]+)\)/);
+        if (!typeMatch || !gradeMatch) continue;
+        const key = `${typeMatch[1].toUpperCase()}|${typeMatch[2]}|${gradeMatch[1].toUpperCase()}`;
+        marketPriceByGearKey.set(key, it);
+      }
       steamPriceTotal.textContent = data.itemCount;
       const updated = new Date(data.fetchedAt).toLocaleDateString("tr-TR", {
         year: "numeric",
@@ -1179,6 +1232,8 @@ invSearch.addEventListener("input", renderInventoryGrid);
 invGradeFilter.addEventListener("change", renderInventoryGrid);
 invPartsFilter.addEventListener("change", renderInventoryGrid);
 invUpgradesOnly.addEventListener("change", renderInventoryGrid);
+invShowPrices.addEventListener("change", (e) => setShowMarketPrices(e.target.checked));
+heroShowPrices.addEventListener("change", (e) => setShowMarketPrices(e.target.checked));
 
 renderSkillGuide();
 

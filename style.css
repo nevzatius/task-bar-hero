@@ -139,6 +139,15 @@ main {
   gap: 0.9rem;
 }
 
+#heroes-panel > .check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 0.8rem;
+}
+
 .hero-card {
   background: #10121a;
   border: 1px solid var(--panel-border);
@@ -184,6 +193,28 @@ main {
 
 .equip-slot .item-name {
   margin-left: auto;
+}
+
+.steam-price-badge {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+
+.steam-price-badge.no-price {
+  color: var(--text-dim);
+  background: none;
+  border: 1px solid var(--panel-border);
+}
+
+.item-card-head .steam-price-badge {
+  margin-left: auto;
+  align-self: flex-start;
 }
 
 .equip-slot .slot-icon {
