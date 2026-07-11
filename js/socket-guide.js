@@ -81,6 +81,11 @@ const FALLBACK_STAT_PRIORITY = [
   "MaxHp", "Armor", "CooldownReduction", "MovementSpeed",
 ];
 
+/** Socket-stat priority order for a class, without needing a concrete item (used by the chat guide). */
+export function statPriorityForClass(className) {
+  return SOCKET_STAT_PRIORITY[className] ?? FALLBACK_STAT_PRIORITY;
+}
+
 // Reuse the skill guide's already-curated class roles (e.g. "Tank / Hibrit
 // DPS", "Heal / Destek", "Menzilli DPS") instead of inventing a second,
 // numeric-only classification — a made-up formula over baseStats alone

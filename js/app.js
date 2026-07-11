@@ -6,6 +6,7 @@ import { SKILL_PLANS, buildSkillPlan, groupSkillPlan, buildActiveLoadoutPlan, AC
 import { buildLoadoutPlanner } from "./loadout-planner.js";
 import { buildSocketGuide } from "./socket-guide.js";
 import { buildFarmGuide } from "./farm-guide.js";
+import { answerChatQuestion } from "./chat-guide.js";
 import { itemIconImg, heroIconImg, colorForGrade } from "./icons.js";
 import { openModal, closeModal, modalBody } from "./modal.js";
 
@@ -37,6 +38,9 @@ const farmDlcCheck = document.getElementById("farm-dlc-check");
 const farmSecondsInput = document.getElementById("farm-seconds-input");
 const farmSuggest = document.getElementById("farm-suggest");
 const farmOutput = document.getElementById("farm-output");
+const chatMessages = document.getElementById("chat-messages");
+const chatForm = document.getElementById("chat-form");
+const chatInput = document.getElementById("chat-input");
 
 // Farm guide state; initialized lazily on first tab visit (ensureFarmGuide)
 // because it needs the full game data download. Declared before the initial
@@ -62,7 +66,7 @@ function setStatus(message, kind) {
 // --- Tab navigation. Tab names live in location.hash so tabs are linkable
 // and back-button friendly; hash values deliberately match no element id
 // (panels are #panel-<name>) so setting the hash never scroll-jumps.
-const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi", "farm-rehberi"];
+const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi", "farm-rehberi", "sohbet"];
 
 function activateTab(name) {
   if (!TAB_NAMES.includes(name)) name = TAB_NAMES[0];
@@ -75,6 +79,7 @@ function activateTab(name) {
     panel.classList.toggle("active", panel.id === `panel-${name}`);
   }
   if (name === "farm-rehberi") ensureFarmGuide();
+  if (name === "sohbet") getGameData().catch(() => {});
 }
 
 function switchTab(name) {
@@ -948,6 +953,45 @@ function handleFarmSourceLink(e) {
 
 socketGuideContent.addEventListener("click", handleFarmSourceLink);
 socketAdviceOutput.addEventListener("click", handleFarmSourceLink);
+
+// --- Sohbet (rule-based chat over the existing guides; no LLM, no network) ---
+
+function appendChatMessage(role, content) {
+  const bubble = document.createElement("div");
+  bubble.className = `chat-bubble chat-${role}`;
+  if (role === "user") bubble.textContent = content;
+  else bubble.innerHTML = content;
+  chatMessages.appendChild(bubble);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+appendChatMessage(
+  "bot",
+  `<p class="chat-line">Merhaba! Bir sınıf adı (Knight, Ranger, Sorcerer, Priest, Hunter, Slayer) ve konu (taş, skill, ekipman) yazarsan yardımcı olurum.</p>
+   <p class="hint">Örnek: "Priest için hangi itemlere neler basmalıyım?"</p>`
+);
+
+chatForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const question = chatInput.value.trim();
+  if (!question) return;
+  appendChatMessage("user", question);
+  chatInput.value = "";
+
+  try {
+    const db = await getGameData();
+    const ctx = {
+      db,
+      save: appCtx?.save ?? null,
+      socketGuide: appCtx?.socketGuide ?? null,
+      loadoutPlanner: appCtx?.loadoutPlanner ?? null,
+    };
+    appendChatMessage("bot", answerChatQuestion(ctx, question));
+  } catch (err) {
+    console.error(err);
+    appendChatMessage("bot", `<p class="hint">Oyun verisi yüklenemedi: ${err.message}</p>`);
+  }
+});
 
 // Prefill the skill calculator and switch to its tab (replaces the old
 // scrollIntoView jump — the section now lives in another tab panel).

@@ -35,6 +35,7 @@
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="tas-rehberi">Taş Rehberi</button>
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="skill-rehberi">Skill Rehberi</button>
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="farm-rehberi">Farm Rehberi</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="sohbet">Sohbet</button>
     </nav>
 
     <section id="panel-kahramanlar" class="tab-panel active" role="tabpanel">
@@ -200,6 +201,24 @@
 
       <div id="farm-suggest" class="farm-suggest" hidden></div>
       <div id="farm-output"><p class="hint">Yükleniyor…</p></div>
+    </section>
+    </section>
+
+    <section id="panel-sohbet" class="tab-panel" role="tabpanel">
+    <section id="chat-guide-section" class="panel">
+      <h2>Sohbet</h2>
+      <p class="hint">
+        Bu bir yapay zeka/LLM değil — yazdığın soruda sınıf adını (Knight, Ranger, Sorcerer, Priest,
+        Hunter, Slayer) ve konuyu (taş, skill, ekipman) yakalayıp yukarıdaki rehberlerden anında cevap
+        üreten basit bir kural motoru. Kayıt dosyanı yüklersen cevaplar kendi eşyalarına/seviyene göre kişiselleşir.
+      </p>
+
+      <div id="chat-messages" class="chat-messages"></div>
+
+      <form id="chat-form" class="chat-form">
+        <input type="text" id="chat-input" placeholder='Örn: "Priest için hangi itemlere neler basmalıyım?"' autocomplete="off" />
+        <button type="submit">Sor</button>
+      </form>
     </section>
     </section>
   </main>
