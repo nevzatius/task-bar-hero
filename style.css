@@ -994,6 +994,49 @@ body:has(dialog[open]) {
   border-color: var(--accent);
 }
 
+/* --- Steam Fiyatları --- */
+
+#market-search {
+  width: 15rem;
+}
+
+.market-table {
+  max-height: 34rem;
+  overflow-y: auto;
+}
+
+.market-table .farm-row.farm-head {
+  position: sticky;
+  top: 0;
+  background: var(--panel-bg);
+  z-index: 1;
+}
+
+.market-row {
+  border-left: 3px solid var(--grade-color, var(--rarity-common));
+  text-decoration: none;
+  color: inherit;
+}
+
+.market-row-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.market-row-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-row-name img {
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: #10121a;
+}
+
 /* On narrow screens drop the least informative column per table type: the
    per-hour column in ranking tables, the per-box chance in the sources table
    (its last column is the main answer and must stay visible). */

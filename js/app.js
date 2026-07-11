@@ -38,6 +38,12 @@ const farmDlcCheck = document.getElementById("farm-dlc-check");
 const farmSecondsInput = document.getElementById("farm-seconds-input");
 const farmSuggest = document.getElementById("farm-suggest");
 const farmOutput = document.getElementById("farm-output");
+const marketSearch = document.getElementById("market-search");
+const marketSort = document.getElementById("market-sort");
+const marketFilterCount = document.getElementById("market-filter-count");
+const marketOutput = document.getElementById("market-output");
+const steamPriceTotal = document.getElementById("steam-price-total");
+const steamPriceUpdated = document.getElementById("steam-price-updated");
 const chatToggle = document.getElementById("chat-toggle");
 const chatPanel = document.getElementById("chat-panel");
 const chatClose = document.getElementById("chat-close");
@@ -59,6 +65,12 @@ function getGameData() {
   return gameDataPromise;
 }
 
+// Steam Community Market price snapshot; loaded lazily on first tab visit.
+// data/steam-prices.json is generated offline by tools/fetch-steam-prices.mjs
+// (not fetched live — Steam's endpoints don't send CORS headers).
+let marketPricesPromise = null;
+let marketPrices = null;
+
 function setStatus(message, kind) {
   statusEl.textContent = message;
   statusEl.classList.remove("error", "success");
@@ -68,7 +80,7 @@ function setStatus(message, kind) {
 // --- Tab navigation. Tab names live in location.hash so tabs are linkable
 // and back-button friendly; hash values deliberately match no element id
 // (panels are #panel-<name>) so setting the hash never scroll-jumps.
-const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi", "farm-rehberi"];
+const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi", "farm-rehberi", "steam-fiyatlari"];
 
 function activateTab(name) {
   if (!TAB_NAMES.includes(name)) name = TAB_NAMES[0];
@@ -81,6 +93,7 @@ function activateTab(name) {
     panel.classList.toggle("active", panel.id === `panel-${name}`);
   }
   if (name === "farm-rehberi") ensureFarmGuide();
+  if (name === "steam-fiyatlari") ensureMarketPrices();
 }
 
 function switchTab(name) {
@@ -954,6 +967,83 @@ function handleFarmSourceLink(e) {
 
 socketGuideContent.addEventListener("click", handleFarmSourceLink);
 socketAdviceOutput.addEventListener("click", handleFarmSourceLink);
+
+// --- Steam Fiyatları (static snapshot from tools/fetch-steam-prices.mjs;
+// Steam's own market endpoints don't send CORS headers, so this can't be
+// fetched live from the browser) ---
+
+function ensureMarketPrices() {
+  if (marketPricesPromise) return marketPricesPromise;
+  marketPricesPromise = fetch(new URL("../data/steam-prices.json", import.meta.url))
+    .then((r) => {
+      if (!r.ok) throw new Error(`steam-prices.json yüklenemedi (${r.status})`);
+      return r.json();
+    })
+    .then((data) => {
+      marketPrices = data;
+      steamPriceTotal.textContent = data.itemCount;
+      const updated = new Date(data.fetchedAt).toLocaleDateString("tr-TR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      steamPriceUpdated.textContent = `Son güncelleme: ${updated}.`;
+      renderMarket();
+    })
+    .catch((err) => {
+      console.error(err);
+      marketOutput.innerHTML = `<p class="hint">Fiyat verisi yüklenemedi: ${err.message}</p>`;
+    });
+  return marketPricesPromise;
+}
+
+function renderMarket() {
+  if (!marketPrices) return;
+  const query = marketSearch.value.trim().toLocaleLowerCase("tr");
+  let rows = query
+    ? marketPrices.items.filter((it) => it.name.toLocaleLowerCase("tr").includes(query))
+    : marketPrices.items;
+
+  const sort = marketSort.value;
+  rows = [...rows].sort((a, b) => {
+    if (sort === "price-asc") return (a.priceCents ?? 0) - (b.priceCents ?? 0);
+    if (sort === "listings-desc") return (b.listings ?? 0) - (a.listings ?? 0);
+    if (sort === "name-asc") return a.name.localeCompare(b.name, "tr");
+    return (b.priceCents ?? 0) - (a.priceCents ?? 0); // price-desc, default
+  });
+
+  marketFilterCount.textContent = `${rows.length} / ${marketPrices.items.length} eşya gösteriliyor.`;
+
+  const appid = marketPrices.appid;
+  const rowsHtml = rows
+    .map((it) => {
+      const marketUrl = `https://steamcommunity.com/market/listings/${appid}/${encodeURIComponent(it.hashName)}`;
+      const icon = it.icon ? `<img src="${it.icon}" alt="" loading="lazy" width="32" height="32" />` : "";
+      return `
+      <a class="farm-row clickable market-row" href="${marketUrl}" target="_blank" rel="noopener"
+         style="--grade-color:${it.color ?? "var(--rarity-common)"}">
+        <span class="market-row-name">${icon}<span>${it.name}</span></span>
+        <span>${it.type || "—"}</span>
+        <span>${it.priceText ?? "—"}</span>
+        <span>${it.listings != null ? it.listings.toLocaleString("tr-TR") : "—"}</span>
+      </a>`;
+    })
+    .join("");
+
+  marketOutput.innerHTML = `
+    <div class="farm-table market-table">
+      <div class="farm-row farm-head">
+        <span>Eşya</span>
+        <span>Tip</span>
+        <span>Fiyat</span>
+        <span>İlan</span>
+      </div>
+      ${rowsHtml || `<p class="hint">Eşleşen eşya yok.</p>`}
+    </div>`;
+}
+
+marketSearch.addEventListener("input", renderMarket);
+marketSort.addEventListener("change", renderMarket);
 
 // --- Sohbet (button-driven chat over the existing guides; no LLM, no network) ---
 

@@ -35,6 +35,7 @@
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="tas-rehberi">Taş Rehberi</button>
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="skill-rehberi">Skill Rehberi</button>
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="farm-rehberi">Farm Rehberi</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="steam-fiyatlari">Steam Fiyatları</button>
     </nav>
 
     <section id="panel-kahramanlar" class="tab-panel active" role="tabpanel">
@@ -200,6 +201,33 @@
 
       <div id="farm-suggest" class="farm-suggest" hidden></div>
       <div id="farm-output"><p class="hint">Yükleniyor…</p></div>
+    </section>
+    </section>
+
+    <section id="panel-steam-fiyatlari" class="tab-panel" role="tabpanel">
+    <section id="steam-prices-section" class="panel">
+      <h2>Steam Fiyatları</h2>
+      <p class="hint">
+        Satılabilir <strong id="steam-price-total">742</strong> eşyanın Steam Community Market fiyatı — resmi Steam
+        arama uç noktasından çekildi, tahmini değil. <span id="steam-price-updated"></span>
+        Bir satıra tıklamak ilgili eşyayı Steam Market'te açar.
+      </p>
+
+      <div class="skill-calc market-controls">
+        <label for="market-search">Ara
+          <input type="search" id="market-search" placeholder="Eşya adı…" autocomplete="off" />
+        </label>
+        <label for="market-sort">Sırala
+          <select id="market-sort">
+            <option value="price-desc">Fiyat (yüksek → düşük)</option>
+            <option value="price-asc">Fiyat (düşük → yüksek)</option>
+            <option value="listings-desc">İlan sayısı (çok → az)</option>
+            <option value="name-asc">İsim (A → Z)</option>
+          </select>
+        </label>
+      </div>
+      <p id="market-filter-count" class="hint"></p>
+      <div id="market-output"><p class="hint">Yükleniyor…</p></div>
     </section>
     </section>
   </main>
