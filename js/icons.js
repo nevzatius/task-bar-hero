@@ -4,17 +4,20 @@
 // when an item has no icon path or its image fails to load (a handful of
 // materials 404 on the source site).
 
+// Values are CSS var() references so the light theme can override them from
+// style.css; the hex fallbacks are the original datamined-palette colors.
+// Only used in CSS contexts (inline style attributes) where var() resolves.
 export const GRADE_COLORS = {
-  COMMON: "#9ca3af",
-  UNCOMMON: "#22c55e",
-  RARE: "#3b82f6",
-  LEGENDARY: "#a855f7",
-  IMMORTAL: "#ec4899",
-  ARCANA: "#f97316",
-  BEYOND: "#eab308",
-  CELESTIAL: "#14b8a6",
-  DIVINE: "#e5e7eb",
-  COSMIC: "#f472b6", // base color; COSMIC also gets a prismatic gradient ring
+  COMMON: "var(--grade-common, #9ca3af)",
+  UNCOMMON: "var(--grade-uncommon, #22c55e)",
+  RARE: "var(--grade-rare, #3b82f6)",
+  LEGENDARY: "var(--grade-legendary, #a855f7)",
+  IMMORTAL: "var(--grade-immortal, #ec4899)",
+  ARCANA: "var(--grade-arcana, #f97316)",
+  BEYOND: "var(--grade-beyond, #eab308)",
+  CELESTIAL: "var(--grade-celestial, #14b8a6)",
+  DIVINE: "var(--grade-divine, #e5e7eb)",
+  COSMIC: "var(--grade-cosmic, #f472b6)", // base color; COSMIC also gets a prismatic gradient ring (hardcoded stops — var() doesn't work in SVG presentation attributes)
 };
 
 export function colorForGrade(grade) {

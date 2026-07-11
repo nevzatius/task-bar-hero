@@ -4,15 +4,50 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>TBH Item Advisor — Task Bar Hero Save Analyzer</title>
+  <script>
+    // Tema, ilk boyamadan önce belirlenir (FOUC önlemi): kayıtlı tercih yoksa
+    // sistem tercihi kullanılır. app.js'teki buton aynı attribute'u değiştirir.
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem("tbh-theme"); } catch (e) {}
+      if (t !== "dark" && t !== "light")
+        t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
   <link rel="stylesheet" href="style.css" />
   <script data-goatcounter="https://nevzatius.goatcounter.com/count"
           async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
-  <header class="site-header">
-    <div id="visitor-counter" class="visitor-counter" title="Toplam ziyaret">👁 <span id="visitor-count">…</span></div>
-    <h1>TBH Item Advisor</h1>
+  <div class="app-shell">
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-mark">TBH</span>
+      <span class="brand-name">TBH Wiki</span>
+      <span class="brand-sub">Item Advisor</span>
+    </div>
+    <nav id="tab-bar" class="tab-bar" role="tablist" aria-label="Bölümler">
+      <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab="kahramanlar">Kahramanlar</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="envanter">Envanter</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="tas-rehberi">Taş Rehberi</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="skill-rehberi">Skill Rehberi</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="farm-rehberi">Farm Rehberi</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="steam-fiyatlari">Steam Fiyatları</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div id="visitor-counter" class="visitor-counter" title="Toplam ziyaret">👁 <span id="visitor-count">…</span></div>
+    </div>
+  </aside>
+  <div id="sidebar-scrim" class="sidebar-scrim" hidden></div>
+
+  <div class="content">
+  <header class="content-header">
+    <button type="button" id="sidebar-toggle" class="sidebar-toggle"
+            aria-label="Menüyü aç/kapat" aria-expanded="false" aria-controls="sidebar">☰</button>
+    <h1 class="content-title">TBH Item Advisor</h1>
     <p class="tagline">Task Bar Hero için resmi olmayan bir hayran aracı: hangi itemi hangi kahramana vermelisin?</p>
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Temayı değiştir">🌙</button>
   </header>
 
   <main>
@@ -28,15 +63,6 @@
         tarayıcının kendi içinde yapılır.
       </p>
     </section>
-
-    <nav id="tab-bar" class="tab-bar" role="tablist" aria-label="Bölümler">
-      <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab="kahramanlar">Kahramanlar</button>
-      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="envanter">Envanter</button>
-      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="tas-rehberi">Taş Rehberi</button>
-      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="skill-rehberi">Skill Rehberi</button>
-      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="farm-rehberi">Farm Rehberi</button>
-      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="steam-fiyatlari">Steam Fiyatları</button>
-    </nav>
 
     <section id="panel-kahramanlar" class="tab-panel active" role="tabpanel">
       <p class="tab-empty-state needs-save">
@@ -221,6 +247,8 @@
         Bir satıra tıklamak ilgili eşyayı Steam Market'te açar.
       </p>
 
+      <div id="market-inventory" class="needs-save-content market-inventory"></div>
+
       <div class="skill-calc market-controls">
         <label for="market-search">Ara
           <input type="search" id="market-search" placeholder="Eşya adı…" autocomplete="off" />
@@ -246,6 +274,8 @@
       Nugem Studio / Tesseract Studio ile bir bağlantısı yoktur.
     </p>
   </footer>
+  </div><!-- /.content -->
+  </div><!-- /.app-shell -->
 
   <dialog id="app-modal" class="app-modal">
     <button type="button" class="modal-close" aria-label="Kapat">×</button>

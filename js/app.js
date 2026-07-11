@@ -40,6 +40,10 @@ const farmDlcCheck = document.getElementById("farm-dlc-check");
 const farmSecondsInput = document.getElementById("farm-seconds-input");
 const farmSuggest = document.getElementById("farm-suggest");
 const farmOutput = document.getElementById("farm-output");
+const themeToggle = document.getElementById("theme-toggle");
+const sidebarToggle = document.getElementById("sidebar-toggle");
+const sidebarScrim = document.getElementById("sidebar-scrim");
+const marketInventory = document.getElementById("market-inventory");
 const marketSearch = document.getElementById("market-search");
 const marketSort = document.getElementById("market-sort");
 const marketFilterCount = document.getElementById("market-filter-count");
@@ -86,6 +90,25 @@ function setStatus(message, kind) {
   if (kind) statusEl.classList.add(kind);
 }
 
+// --- Tema (koyu/açık). İlk değer index.html'deki inline script tarafından
+// ilk boyamadan önce set edildi; buton onu değiştirip localStorage'a yazar.
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+  themeToggle.setAttribute("aria-label", theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç");
+}
+applyTheme(document.documentElement.dataset.theme);
+themeToggle.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try { localStorage.setItem("tbh-theme", next); } catch {}
+});
+// Kullanıcı elle seçmediği sürece sistem tercihi değişikliklerini takip et.
+matchMedia("(prefers-color-scheme: light)").addEventListener("change", (e) => {
+  try { if (localStorage.getItem("tbh-theme")) return; } catch {}
+  applyTheme(e.matches ? "light" : "dark");
+});
+
 // --- Tab navigation. Tab names live in location.hash so tabs are linkable
 // and back-button friendly; hash values deliberately match no element id
 // (panels are #panel-<name>) so setting the hash never scroll-jumps.
@@ -110,9 +133,24 @@ function switchTab(name) {
   if (location.hash.slice(1) !== name) location.hash = name;
 }
 
+// Mobil çekmece: dar ekranda sidebar hamburger'la açılır, scrim'e veya bir
+// sekmeye tıklayınca kapanır. Masaüstünde CSS bu sınıfı yok sayar.
+function setSidebarOpen(open) {
+  document.body.classList.toggle("sidebar-open", open);
+  sidebarScrim.hidden = !open;
+  sidebarToggle.setAttribute("aria-expanded", String(open));
+}
+sidebarToggle.addEventListener("click", () =>
+  setSidebarOpen(!document.body.classList.contains("sidebar-open"))
+);
+sidebarScrim.addEventListener("click", () => setSidebarOpen(false));
+
 tabBar.addEventListener("click", (e) => {
   const btn = e.target.closest(".tab-btn");
-  if (btn) switchTab(btn.dataset.tab);
+  if (btn) {
+    switchTab(btn.dataset.tab);
+    setSidebarOpen(false);
+  }
 });
 window.addEventListener("hashchange", () => activateTab(location.hash.slice(1)));
 activateTab(location.hash.slice(1));
@@ -164,6 +202,7 @@ function render(save, db, recommender, loadoutPlanner, socketGuide) {
   renderInventoryGrid();
   renderSocketGuide(db, socketGuide);
   renderSocketAdvisor(save, db, recommender, socketGuide);
+  renderMarketInventory();
 }
 
 function equipListHtml(hero) {
@@ -1042,12 +1081,86 @@ function ensureMarketPrices() {
       });
       steamPriceUpdated.textContent = `Son güncelleme: ${updated}.`;
       renderMarket();
+      renderMarketInventory();
     })
     .catch((err) => {
       console.error(err);
       marketOutput.innerHTML = `<p class="hint">Fiyat verisi yüklenemedi: ${err.message}</p>`;
     });
   return marketPricesPromise;
+}
+
+// "Envanterim": save yüklüyse sekmenin üstünde, sahip olunan ekipmanların
+// Steam fiyatları ve tahmini toplam değer. Aynı item tanımı (itemKey) tek
+// satırda ×N olarak gruplanır — fiyat anahtarına göre değil, çünkü farklı
+// isimli iki item aynı GEARTYPE|LEVEL|GRADE fiyatını paylaşabilir.
+function renderMarketInventory() {
+  if (!appCtx || !marketPriceByGearKey) {
+    marketInventory.innerHTML = "";
+    return;
+  }
+  const { save, db } = appCtx;
+  const equippedIds = save.heroes.flatMap((h) => (h.isUnlocked ? h.equippedItemIds : []));
+  const uniqueIds = [...new Set([...save.inventoryItemIds, ...save.stashItemIds, ...equippedIds])];
+
+  const groups = new Map(); // itemKey -> { itemDef, count }
+  for (const uniqueId of uniqueIds) {
+    const itemDef = resolveItem(uniqueId, save, db);
+    if (!itemDef || itemDef.itemType !== "GEAR") continue;
+    const group = groups.get(itemDef.itemKey);
+    if (group) group.count += 1;
+    else groups.set(itemDef.itemKey, { itemDef, count: 1 });
+  }
+
+  const rows = [...groups.values()]
+    .map((g) => ({ ...g, price: steamPriceFor(g.itemDef) }))
+    .sort(
+      (a, b) => (b.price?.priceCents ?? -1) * b.count - (a.price?.priceCents ?? -1) * a.count
+    );
+  const totalCents = rows.reduce((sum, r) => sum + (r.price?.priceCents ?? 0) * r.count, 0);
+  const pricedCount = rows.filter((r) => r.price?.priceCents != null).length;
+  const fmtPrice = (cents) =>
+    (cents / 100).toLocaleString("en-US", { style: "currency", currency: marketPrices.currency ?? "USD" });
+
+  const appid = marketPrices.appid;
+  const rowsHtml = rows
+    .map(({ itemDef, count, price }) => {
+      const countHtml = count > 1 ? ` <span class="market-inv-count">×${count}</span>` : "";
+      const cells = `
+        <span class="market-row-name">${itemIconImg(itemDef, { size: 26 })}<span>${db.displayName(itemDef)}${countHtml}</span></span>
+        <span>${itemMetaLine(db, itemDef)}</span>`;
+      const style = `style="--grade-color:${colorForGrade(itemDef.grade)}"`;
+      if (price?.priceCents == null) {
+        return `<div class="farm-row market-row" ${style}>
+          ${cells}
+          <span class="market-inv-count">Fiyat yok</span>
+          <span>—</span>
+        </div>`;
+      }
+      const marketUrl = `https://steamcommunity.com/market/listings/${appid}/${encodeURIComponent(price.hashName)}`;
+      return `<a class="farm-row clickable market-row" href="${marketUrl}" target="_blank" rel="noopener" ${style}>
+        ${cells}
+        <span>${price.priceText ?? fmtPrice(price.priceCents)}</span>
+        <span>${fmtPrice(price.priceCents * count)}</span>
+      </a>`;
+    })
+    .join("");
+
+  marketInventory.innerHTML = `
+    <h3>Envanterim</h3>
+    <p class="market-inv-total">Tahmini toplam değer: ${fmtPrice(totalCents)} (${rows.length} eşyadan ${pricedCount} tanesi fiyatlı)</p>
+    <p class="hint">Envanter + depo + kahramanların üzerindeki ekipmanlar. Fiyatlar en düşük ilan
+    fiyatının anlık görüntüsüdür; materyaller Steam adlarıyla eşleştirilemediği için listede
+    yalnızca ekipmanlar var.</p>
+    <div class="farm-table market-table market-inv-table">
+      <div class="farm-row farm-head">
+        <span>Eşya</span>
+        <span>Tip · Sv.</span>
+        <span>Birim fiyat</span>
+        <span>Toplam</span>
+      </div>
+      ${rowsHtml || `<p class="hint">Envanterinde ekipman bulunamadı.</p>`}
+    </div>`;
 }
 
 function renderMarket() {
@@ -1074,7 +1187,7 @@ function renderMarket() {
       const icon = it.icon ? `<img src="${it.icon}" alt="" loading="lazy" width="32" height="32" />` : "";
       return `
       <a class="farm-row clickable market-row" href="${marketUrl}" target="_blank" rel="noopener"
-         style="--grade-color:${it.color ?? "var(--rarity-common)"}">
+         style="--grade-color:${it.color ?? "var(--grade-common)"}">
         <span class="market-row-name">${icon}<span>${it.name}</span></span>
         <span>${it.type || "—"}</span>
         <span>${it.priceText ?? "—"}</span>
