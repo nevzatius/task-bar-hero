@@ -6,7 +6,7 @@ import { SKILL_PLANS, buildSkillPlan, groupSkillPlan, buildActiveLoadoutPlan, AC
 import { buildLoadoutPlanner } from "./loadout-planner.js";
 import { buildSocketGuide } from "./socket-guide.js";
 import { buildFarmGuide } from "./farm-guide.js";
-import { answerChatQuestion } from "./chat-guide.js";
+import { answerFor, CLASS_NAMES, CHAT_INTENTS } from "./chat-guide.js";
 import { itemIconImg, heroIconImg, colorForGrade } from "./icons.js";
 import { openModal, closeModal, modalBody } from "./modal.js";
 
@@ -38,9 +38,11 @@ const farmDlcCheck = document.getElementById("farm-dlc-check");
 const farmSecondsInput = document.getElementById("farm-seconds-input");
 const farmSuggest = document.getElementById("farm-suggest");
 const farmOutput = document.getElementById("farm-output");
+const chatToggle = document.getElementById("chat-toggle");
+const chatPanel = document.getElementById("chat-panel");
+const chatClose = document.getElementById("chat-close");
 const chatMessages = document.getElementById("chat-messages");
-const chatForm = document.getElementById("chat-form");
-const chatInput = document.getElementById("chat-input");
+const chatOptions = document.getElementById("chat-options");
 
 // Farm guide state; initialized lazily on first tab visit (ensureFarmGuide)
 // because it needs the full game data download. Declared before the initial
@@ -66,7 +68,7 @@ function setStatus(message, kind) {
 // --- Tab navigation. Tab names live in location.hash so tabs are linkable
 // and back-button friendly; hash values deliberately match no element id
 // (panels are #panel-<name>) so setting the hash never scroll-jumps.
-const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi", "farm-rehberi", "sohbet"];
+const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi", "farm-rehberi"];
 
 function activateTab(name) {
   if (!TAB_NAMES.includes(name)) name = TAB_NAMES[0];
@@ -79,7 +81,6 @@ function activateTab(name) {
     panel.classList.toggle("active", panel.id === `panel-${name}`);
   }
   if (name === "farm-rehberi") ensureFarmGuide();
-  if (name === "sohbet") getGameData().catch(() => {});
 }
 
 function switchTab(name) {
@@ -954,7 +955,10 @@ function handleFarmSourceLink(e) {
 socketGuideContent.addEventListener("click", handleFarmSourceLink);
 socketAdviceOutput.addEventListener("click", handleFarmSourceLink);
 
-// --- Sohbet (rule-based chat over the existing guides; no LLM, no network) ---
+// --- Sohbet (button-driven chat over the existing guides; no LLM, no network) ---
+
+let chatOpened = false;
+let chatClassName = null; // null = still picking a class
 
 function appendChatMessage(role, content) {
   const bubble = document.createElement("div");
@@ -965,31 +969,74 @@ function appendChatMessage(role, content) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-appendChatMessage(
-  "bot",
-  `<p class="chat-line">Merhaba! Bir sınıf adı (Knight, Ranger, Sorcerer, Priest, Hunter, Slayer) ve konu (taş, skill, ekipman) yazarsan yardımcı olurum.</p>
-   <p class="hint">Örnek: "Priest için hangi itemlere neler basmalıyım?"</p>`
-);
+function renderChatOptions() {
+  if (!chatClassName) {
+    chatOptions.innerHTML = CLASS_NAMES.map(
+      (c) => `<button type="button" class="chat-option-btn" data-class="${c}">${c}</button>`
+    ).join("");
+    return;
+  }
+  const intentBtns = CHAT_INTENTS.map(
+    (i) => `<button type="button" class="chat-option-btn" data-intent="${i.key}">${i.label}</button>`
+  ).join("");
+  chatOptions.innerHTML = `${intentBtns}<button type="button" class="chat-option-btn chat-option-back" data-back="1">← Başka kahraman</button>`;
+}
 
-chatForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const question = chatInput.value.trim();
-  if (!question) return;
-  appendChatMessage("user", question);
-  chatInput.value = "";
+function openChat() {
+  chatPanel.hidden = false;
+  chatToggle.setAttribute("aria-expanded", "true");
+  if (!chatOpened) {
+    chatOpened = true;
+    appendChatMessage("bot", `<p class="chat-line">Merhaba! Hangi kahraman için soru sormak istersin?</p>`);
+    renderChatOptions();
+    getGameData().catch(() => {});
+  }
+}
 
-  try {
-    const db = await getGameData();
-    const ctx = {
-      db,
-      save: appCtx?.save ?? null,
-      socketGuide: appCtx?.socketGuide ?? null,
-      loadoutPlanner: appCtx?.loadoutPlanner ?? null,
-    };
-    appendChatMessage("bot", answerChatQuestion(ctx, question));
-  } catch (err) {
-    console.error(err);
-    appendChatMessage("bot", `<p class="hint">Oyun verisi yüklenemedi: ${err.message}</p>`);
+function closeChat() {
+  chatPanel.hidden = true;
+  chatToggle.setAttribute("aria-expanded", "false");
+}
+
+chatToggle.addEventListener("click", () => (chatPanel.hidden ? openChat() : closeChat()));
+chatClose.addEventListener("click", closeChat);
+
+chatOptions.addEventListener("click", async (e) => {
+  const classBtn = e.target.closest("button[data-class]");
+  const intentBtn = e.target.closest("button[data-intent]");
+  const backBtn = e.target.closest("button[data-back]");
+
+  if (classBtn) {
+    chatClassName = classBtn.dataset.class;
+    appendChatMessage("user", chatClassName);
+    appendChatMessage("bot", `<p class="chat-line"><strong>${chatClassName}</strong> için ne öğrenmek istersin?</p>`);
+    renderChatOptions();
+    return;
+  }
+
+  if (backBtn) {
+    chatClassName = null;
+    appendChatMessage("bot", `<p class="chat-line">Hangi kahraman için soru sormak istersin?</p>`);
+    renderChatOptions();
+    return;
+  }
+
+  if (intentBtn) {
+    const intent = CHAT_INTENTS.find((i) => i.key === intentBtn.dataset.intent);
+    appendChatMessage("user", intent.label);
+    try {
+      const db = await getGameData();
+      const ctx = {
+        db,
+        save: appCtx?.save ?? null,
+        socketGuide: appCtx?.socketGuide ?? null,
+        loadoutPlanner: appCtx?.loadoutPlanner ?? null,
+      };
+      appendChatMessage("bot", answerFor(ctx, chatClassName, intent.key));
+    } catch (err) {
+      console.error(err);
+      appendChatMessage("bot", `<p class="hint">Oyun verisi yüklenemedi: ${err.message}</p>`);
+    }
   }
 });
 

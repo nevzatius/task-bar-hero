@@ -1,48 +1,21 @@
-// Rule-based "chat" front end over the existing analysis engines: no LLM, no
-// network call — just keyword matching on the question (class name + intent)
-// routed to socket-guide / skill-guide / loadout-planner and formatted as a
-// short chat reply. Kept deliberately simple; it answers the handful of
-// question shapes players actually ask ("X için hangi taş", "X build",
-// "X'e ne giydirmeliyim"), not open-ended natural language.
+// Button-driven "chat" front end over the existing analysis engines: no LLM,
+// no network call — the user picks a class then a topic from fixed option
+// buttons (see CLASS_NAMES / CHAT_INTENTS), and answerFor() routes that pair
+// to socket-guide / skill-guide / loadout-planner and formats the result as
+// a chat reply.
 
 import { SKILL_PLANS, buildSkillPlan, groupSkillPlan, buildActiveLoadoutPlan } from "./skill-guide.js";
 import { statPriorityForClass } from "./socket-guide.js";
 import { EQUIP_SLOT_PARTS } from "./save-parser.js";
 
-// Turkish aliases players are likely to type instead of the English class
-// name — an editorial guess for convenience, not game data.
-const CLASS_ALIASES = {
-  "şövalye": "Knight", "sovalye": "Knight", "knight": "Knight",
-  "okçu": "Ranger", "okcu": "Ranger", "ranger": "Ranger",
-  "büyücü": "Sorcerer", "buyucu": "Sorcerer", "mage": "Sorcerer", "sorcerer": "Sorcerer",
-  "rahip": "Priest", "şifacı": "Priest", "sifaci": "Priest", "healer": "Priest", "priest": "Priest",
-  "avcı": "Hunter", "avci": "Hunter", "hunter": "Hunter",
-  "katil": "Slayer", "suikastçı": "Slayer", "suikastci": "Slayer", "slayer": "Slayer",
-};
+// Same order as the Skill Rehberi class dropdown.
+export const CLASS_NAMES = ["Knight", "Ranger", "Sorcerer", "Priest", "Hunter", "Slayer"];
 
-const INTENT_KEYWORDS = {
-  socket: ["taş", "tas", "soket", "socket", "süsleme", "susleme", "kazıma", "kazima", "nakış", "nakis", "stone", "gem", " bas"],
-  skill: ["skill", "yetenek", "build", "puan"],
-  gear: ["ekipman", "eşya", "esya", "item", "loadout", "ne giy", "ne tak", "gear"],
-};
-
-const EXAMPLE_QUESTION = "Priest için hangi itemlere neler basmalıyım?";
-
-function detectClass(question) {
-  const lower = question.toLocaleLowerCase("tr");
-  for (const [alias, className] of Object.entries(CLASS_ALIASES)) {
-    if (lower.includes(alias)) return className;
-  }
-  return null;
-}
-
-function detectIntent(question) {
-  const lower = question.toLocaleLowerCase("tr");
-  for (const [intent, keywords] of Object.entries(INTENT_KEYWORDS)) {
-    if (keywords.some((k) => lower.includes(k))) return intent;
-  }
-  return null;
-}
+export const CHAT_INTENTS = [
+  { key: "socket", label: "Taş Önerisi" },
+  { key: "skill", label: "Skill Puanları" },
+  { key: "gear", label: "Ekipman Planı" },
+];
 
 function resolveItem(uniqueId, save, db) {
   if (!uniqueId) return null;
@@ -148,26 +121,15 @@ function gearAnswerHtml(ctx, className) {
     <div class="chat-gear-list">${rowsHtml}</div>`;
 }
 
-function helpHtml(className) {
-  if (className) {
-    return `<p class="chat-line"><strong>${className}</strong> hakkında ne öğrenmek istersin — soket taşı, skill puanı, yoksa ekipman planı mı?</p>`;
-  }
-  return `<p class="chat-line">Bir sınıf adı (Knight, Ranger, Sorcerer, Priest, Hunter, Slayer) ve ne öğrenmek istediğini (taş, skill, ekipman) yazarsan yardımcı olabilirim.</p>
-    <p class="hint">Örnek: "${EXAMPLE_QUESTION}"</p>`;
-}
-
 /**
  * @param {{db:object, save:object|null, socketGuide:object|null, loadoutPlanner:object|null}} ctx
- * @param {string} question - raw chat input
+ * @param {string} className - one of CLASS_NAMES
+ * @param {string} intentKey - one of CHAT_INTENTS[].key
  * @returns {string} HTML fragment for the chat reply
  */
-export function answerChatQuestion(ctx, question) {
-  const className = detectClass(question);
-  const intent = detectIntent(question);
-
-  if (!className) return helpHtml(null);
-  if (intent === "socket") return socketAnswerHtml(ctx, className);
-  if (intent === "skill") return skillAnswerHtml(ctx, className);
-  if (intent === "gear") return gearAnswerHtml(ctx, className);
-  return helpHtml(className);
+export function answerFor(ctx, className, intentKey) {
+  if (intentKey === "socket") return socketAnswerHtml(ctx, className);
+  if (intentKey === "skill") return skillAnswerHtml(ctx, className);
+  if (intentKey === "gear") return gearAnswerHtml(ctx, className);
+  return `<p class="hint">Bilinmeyen soru tipi.</p>`;
 }
