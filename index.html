@@ -34,6 +34,7 @@
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="skill-rehberi">Skill Rehberi</button>
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="farm-rehberi">Farm Rehberi</button>
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="steam-fiyatlari">Steam Fiyatları</button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="sohbet">Sohbet</button>
     </nav>
     <div class="sidebar-foot">
       <div id="visitor-counter" class="visitor-counter" title="Toplam ziyaret">👁 <span id="visitor-count">…</span></div>
@@ -266,6 +267,17 @@
       <div id="market-output"><p class="hint">Yükleniyor…</p></div>
     </section>
     </section>
+
+    <section id="panel-sohbet" class="tab-panel" role="tabpanel">
+    <section class="panel chat-tab-panel">
+      <h2>Sohbet</h2>
+      <p class="hint">
+        Kayıt dosyana göre öneri veren rehber: hangi itemi kullan, hangi iteme hangi taşı bas,
+        skill puanlarını nereye harca. Sorular buton akışıyla ilerler; sağ alttaki balonla aynı sohbettir.
+      </p>
+      <div id="chat-tab-host" class="chat-tab-host"></div>
+    </section>
+    </section>
   </main>
 
   <footer class="site-footer">
@@ -290,8 +302,10 @@
         <span>Sohbet — Kahraman Rehberi</span>
         <button type="button" id="chat-close" class="chat-close" aria-label="Kapat">×</button>
       </div>
-      <div id="chat-messages" class="chat-messages"></div>
-      <div id="chat-options" class="chat-options"></div>
+      <div id="chat-body" class="chat-body">
+        <div id="chat-messages" class="chat-messages"></div>
+        <div id="chat-options" class="chat-options"></div>
+      </div>
     </div>
   </div>
 

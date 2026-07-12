@@ -50,11 +50,14 @@ const marketFilterCount = document.getElementById("market-filter-count");
 const marketOutput = document.getElementById("market-output");
 const steamPriceTotal = document.getElementById("steam-price-total");
 const steamPriceUpdated = document.getElementById("steam-price-updated");
+const chatWidget = document.getElementById("chat-widget");
 const chatToggle = document.getElementById("chat-toggle");
 const chatPanel = document.getElementById("chat-panel");
 const chatClose = document.getElementById("chat-close");
+const chatBody = document.getElementById("chat-body");
 const chatMessages = document.getElementById("chat-messages");
 const chatOptions = document.getElementById("chat-options");
+const chatTabHost = document.getElementById("chat-tab-host");
 
 // Farm guide state; initialized lazily on first tab visit (ensureFarmGuide)
 // because it needs the full game data download. Declared before the initial
@@ -64,6 +67,12 @@ let farmGuide = null;
 let farmDb = null;
 let farmItems = null; // [{ def, label, searchText }] for the item search box
 let farmSelectedItemKey = null;
+
+// Sohbet durumu; balon ve Sohbet sekmesi aynı gövdeyi paylaşır. Aşağıdaki
+// ilk activateTab çağrısı (#sohbet deep link'i) bunlara dokunduğu için
+// sohbet bölümünden önce, burada tanımlı olmaları gerekiyor (TDZ).
+let chatOpened = false;
+let chatClassName = null; // null = hâlâ kahraman sınıfı seçiliyor
 
 let gameDataPromise = null;
 function getGameData() {
@@ -112,7 +121,7 @@ matchMedia("(prefers-color-scheme: light)").addEventListener("change", (e) => {
 // --- Tab navigation. Tab names live in location.hash so tabs are linkable
 // and back-button friendly; hash values deliberately match no element id
 // (panels are #panel-<name>) so setting the hash never scroll-jumps.
-const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi", "farm-rehberi", "steam-fiyatlari"];
+const TAB_NAMES = ["kahramanlar", "envanter", "tas-rehberi", "skill-rehberi", "farm-rehberi", "steam-fiyatlari", "sohbet"];
 
 function activateTab(name) {
   if (!TAB_NAMES.includes(name)) name = TAB_NAMES[0];
@@ -126,6 +135,7 @@ function activateTab(name) {
   }
   if (name === "farm-rehberi") ensureFarmGuide();
   if (name === "steam-fiyatlari") ensureMarketPrices();
+  syncChatPlacement(name === "sohbet");
 }
 
 function switchTab(name) {
@@ -1211,10 +1221,9 @@ function renderMarket() {
 marketSearch.addEventListener("input", renderMarket);
 marketSort.addEventListener("change", renderMarket);
 
-// --- Sohbet (button-driven chat over the existing guides; no LLM, no network) ---
-
-let chatOpened = false;
-let chatClassName = null; // null = still picking a class
+// --- Sohbet (button-driven chat over the existing guides; no LLM, no network)
+// State (chatOpened / chatClassName) is declared near the top of the file —
+// the initial activateTab call can hit syncChatPlacement before this section.
 
 function appendChatMessage(role, content) {
   const bubble = document.createElement("div");
@@ -1238,15 +1247,33 @@ function renderChatOptions() {
   chatOptions.innerHTML = `${intentBtns}<button type="button" class="chat-option-btn chat-option-back" data-back="1">← Başka kahraman</button>`;
 }
 
+function ensureChatInit() {
+  if (chatOpened) return;
+  chatOpened = true;
+  appendChatMessage("bot", `<p class="chat-line">Merhaba! Hangi kahraman için soru sormak istersin?</p>`);
+  renderChatOptions();
+  getGameData().catch(() => {});
+}
+
 function openChat() {
   chatPanel.hidden = false;
   chatToggle.setAttribute("aria-expanded", "true");
-  if (!chatOpened) {
-    chatOpened = true;
-    appendChatMessage("bot", `<p class="chat-line">Merhaba! Hangi kahraman için soru sormak istersin?</p>`);
-    renderChatOptions();
-    getGameData().catch(() => {});
+  ensureChatInit();
+}
+
+// Sohbet gövdesini (mesajlar + seçenek butonları) yüzen balon paneli ile
+// Sohbet sekmesi arasında taşır. DOM düğümü appendChild ile taşındığından
+// mesaj geçmişi ve delegasyonlu dinleyiciler aynen korunur.
+function syncChatPlacement(inTab) {
+  if (inTab) {
+    if (chatBody.parentElement !== chatTabHost) chatTabHost.appendChild(chatBody);
+    chatWidget.hidden = true;
+    ensureChatInit();
+  } else {
+    if (chatBody.parentElement !== chatPanel) chatPanel.appendChild(chatBody);
+    chatWidget.hidden = false;
   }
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 function closeChat() {

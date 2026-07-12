@@ -1308,6 +1308,12 @@ body:has(dialog[open]) {
 
 /* --- Sohbet (floating, button-driven chat widget) --- */
 
+/* display:flex, [hidden] öznitelik stilini ezer; Sohbet sekmesindeyken balonu
+   gizlemek için açık kural gerekli (app.js: syncChatPlacement). */
+.chat-widget[hidden] {
+  display: none;
+}
+
 .chat-widget {
   position: fixed;
   right: 1.2rem;
@@ -1349,6 +1355,23 @@ body:has(dialog[open]) {
   border-radius: 12px;
   box-shadow: 0 8px 28px var(--shadow);
   overflow: hidden;
+}
+
+/* Mesajlar + seçenek butonlarının ortak sarmalayıcısı; balon paneli ile
+   Sohbet sekmesi arasında JS ile taşınır (app.js: syncChatPlacement). */
+.chat-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chat-tab-host .chat-body {
+  height: min(65vh, 36rem);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
 }
 
 .chat-panel-head {
@@ -1468,4 +1491,15 @@ body:has(dialog[open]) {
 .chat-option-btn.chat-option-back {
   color: var(--text-dim);
   border-color: var(--panel-border);
+}
+
+.chat-badge {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
 }

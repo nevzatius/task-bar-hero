@@ -12,9 +12,10 @@ import { EQUIP_SLOT_PARTS } from "./save-parser.js";
 export const CLASS_NAMES = ["Knight", "Ranger", "Sorcerer", "Priest", "Hunter", "Slayer"];
 
 export const CHAT_INTENTS = [
+  { key: "upgrade", label: "Ne Değiştireyim?" },
+  { key: "gear", label: "Ekipman Planı" },
   { key: "socket", label: "Taş Önerisi" },
   { key: "skill", label: "Skill Puanları" },
-  { key: "gear", label: "Ekipman Planı" },
 ];
 
 function resolveItem(uniqueId, save, db) {
@@ -41,6 +42,7 @@ function socketAnswerHtml(ctx, className) {
   if (!hero) {
     return `${priorityHtml}<p class="hint">${className} kahramanı henüz açılmamış görünüyor.</p>`;
   }
+  const priorityHint = `<p class="hint">Genel öncelik: ${priorityStats.join(", ")}.</p>`;
 
   const rowsHtml = hero.equippedItemIds
     .map((uniqueId, i) => {
@@ -66,9 +68,9 @@ function socketAnswerHtml(ctx, className) {
     })
     .join("");
 
-  return `${priorityHtml}
-    <p class="chat-line">Üzerindeki eşyalar için taş önerisi:</p>
+  return `<p class="chat-line"><strong>${hero.className}</strong> (Sv.${hero.level}) — üzerindeki eşyalara basılacak taşlar:</p>
     <div class="chat-gear-list">${rowsHtml}</div>
+    ${priorityHint}
     <p class="hint">Detaylı sıralama ve "sende var" işaretleri için <strong>Taş Rehberi</strong> sekmesinde itemi seçip aç.</p>`;
 }
 
@@ -112,12 +114,51 @@ function gearAnswerHtml(ctx, className) {
     .planForHero(hero)
     .map((slot) => {
       const slotLabel = db.labelForParts(slot.parts);
-      const text = slot.best ? db.displayName(slot.best) : "sahip olduğun bir item yok";
+      let text;
+      if (!slot.best) {
+        text = `<span class="hint">sahip olduğun bir item yok</span>`;
+      } else if (slot.isFallback) {
+        text = `${db.displayName(slot.best)} <span class="hint">(seviyen yetmiyor, Sv.${slot.best.level} gerekli)</span>`;
+      } else if (slot.isUpgrade) {
+        const oldName = slot.equippedDef ? db.displayName(slot.equippedDef) : "boş";
+        text = `${oldName} → <strong>${db.displayName(slot.best)}</strong> <span class="chat-badge">değiştir</span>`;
+      } else {
+        // Owned pool has nothing better than what's equipped (equipped items
+        // aren't in inventory/stash, so "best" here is the best *owned* spare).
+        text = slot.equippedDef
+          ? `${db.displayName(slot.equippedDef)} <span class="hint">(takılı olan daha iyi, değişiklik gerekmez)</span>`
+          : `${db.displayName(slot.best)} <span class="hint">(slot boş, bunu tak)</span>`;
+      }
       return `<div class="chat-gear-row"><span class="chat-gear-slot">${slotLabel}</span><span>${text}</span></div>`;
     })
     .join("");
 
-  return `<p class="chat-line"><strong>${hero.className}</strong> (Sv.${hero.level}) için önerilen ekipman:</p>
+  return `<p class="chat-line"><strong>${hero.className}</strong> (Sv.${hero.level}) için slot slot ekipman planı:</p>
+    <div class="chat-gear-list">${rowsHtml}</div>`;
+}
+
+function upgradeAnswerHtml(ctx, className) {
+  const { db, save, loadoutPlanner } = ctx;
+  if (!save || !loadoutPlanner) {
+    return `<p class="hint">Neyi değiştirmen gerektiğini söyleyebilmem için önce kayıt dosyanı yükle.</p>`;
+  }
+  const hero = heroFor(save, className);
+  if (!hero) return `<p class="hint">${className} kahramanı henüz açılmamış görünüyor.</p>`;
+
+  const upgrades = loadoutPlanner.planForHero(hero).filter((slot) => slot.isUpgrade);
+  if (upgrades.length === 0) {
+    return `<p class="chat-line"><strong>${hero.className}</strong> (Sv.${hero.level}): envanterinde takılılardan daha iyi bir item yok — şu an değişiklik gerekmiyor. 👍</p>`;
+  }
+
+  const rowsHtml = upgrades
+    .map((slot) => {
+      const slotLabel = db.labelForParts(slot.parts);
+      const oldName = slot.equippedDef ? db.displayName(slot.equippedDef) : "boş";
+      return `<div class="chat-gear-row"><span class="chat-gear-slot">${slotLabel}</span><span>${oldName} → <strong>${db.displayName(slot.best)}</strong></span></div>`;
+    })
+    .join("");
+
+  return `<p class="chat-line"><strong>${hero.className}</strong> (Sv.${hero.level}) için envanterinde takılıdan daha iyi ${upgrades.length} item var — bunları kullan:</p>
     <div class="chat-gear-list">${rowsHtml}</div>`;
 }
 
@@ -128,6 +169,7 @@ function gearAnswerHtml(ctx, className) {
  * @returns {string} HTML fragment for the chat reply
  */
 export function answerFor(ctx, className, intentKey) {
+  if (intentKey === "upgrade") return upgradeAnswerHtml(ctx, className);
   if (intentKey === "socket") return socketAnswerHtml(ctx, className);
   if (intentKey === "skill") return skillAnswerHtml(ctx, className);
   if (intentKey === "gear") return gearAnswerHtml(ctx, className);
